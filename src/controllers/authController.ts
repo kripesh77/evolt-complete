@@ -2,6 +2,15 @@ import type { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import User from "../models/user.js";
 import type { AuthResponse, UserRole } from "../types/vehicle.js";
+import { eventBus, createEvent } from "../events/index.js";
+import type {
+  UserRegisteredEvent,
+  UserLoggedInEvent,
+  VehicleProfileAddedEvent,
+  VehicleProfileRemovedEvent,
+  FavoriteAddedEvent,
+  FavoriteRemovedEvent,
+} from "../events/types.js";
 
 /**
  * Register a new user (user, operator, or admin)
@@ -76,6 +85,16 @@ export const register = async (
 
     // Generate token
     const token = user.generateAuthToken();
+
+    // Emit user registered event
+    eventBus.publish(
+      createEvent<UserRegisteredEvent>("user.registered", {
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role,
+        name: user.name,
+      }),
+    );
 
     const response: AuthResponse = {
       token,
@@ -157,6 +176,16 @@ export const login = async (
 
     // Generate token
     const token = user.generateAuthToken();
+
+    // Emit user logged in event
+    eventBus.publish(
+      createEvent<UserLoggedInEvent>("user.loggedIn", {
+        userId: user._id.toString(),
+        email: user.email,
+        role: user.role,
+        ip: req.ip,
+      }),
+    );
 
     const response: AuthResponse = {
       token,
@@ -439,6 +468,20 @@ export const addVehicleProfile = async (
 
     await user.save();
 
+    // Get the newly added profile (last one in array)
+    const newProfile = user.vehicleProfiles[user.vehicleProfiles.length - 1];
+
+    // Emit vehicle profile added event
+    if (newProfile) {
+      eventBus.publish(
+        createEvent<VehicleProfileAddedEvent>("vehicleProfile.added", {
+          userId: user._id.toString(),
+          profileId: newProfile._id?.toString() || "",
+          vehicleType,
+        }),
+      );
+    }
+
     res.status(201).json({
       status: "success",
       message: "Vehicle profile added successfully",
@@ -496,6 +539,14 @@ export const removeVehicleProfile = async (
 
     user.vehicleProfiles?.splice(profileIndex, 1);
     await user.save();
+
+    // Emit vehicle profile removed event
+    eventBus.publish(
+      createEvent<VehicleProfileRemovedEvent>("vehicleProfile.removed", {
+        userId: user._id.toString(),
+        profileId: profileId as string,
+      }),
+    );
 
     res.status(200).json({
       status: "success",
@@ -565,6 +616,14 @@ export const addFavoriteStation = async (
     user.favoriteStations.push(stationObjectId);
     await user.save();
 
+    // Emit favorite added event
+    eventBus.publish(
+      createEvent<FavoriteAddedEvent>("favorite.added", {
+        userId: user._id.toString(),
+        stationId: stationId as string,
+      }),
+    );
+
     res.status(201).json({
       status: "success",
       message: "Station added to favorites",
@@ -622,6 +681,14 @@ export const removeFavoriteStation = async (
 
     user.favoriteStations?.splice(index, 1);
     await user.save();
+
+    // Emit favorite removed event
+    eventBus.publish(
+      createEvent<FavoriteRemovedEvent>("favorite.removed", {
+        userId: user._id.toString(),
+        stationId: stationId as string,
+      }),
+    );
 
     res.status(200).json({
       status: "success",

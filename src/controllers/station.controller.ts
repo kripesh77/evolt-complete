@@ -8,6 +8,14 @@ import type {
   ConnectorType,
   VehicleType,
 } from "../types/vehicle.js";
+import { eventBus, createEvent } from "../events/index.js";
+import type {
+  StationCreatedEvent,
+  StationUpdatedEvent,
+  StationDeletedEvent,
+  OccupancyFullEvent,
+  OccupancyAvailableEvent,
+} from "../events/types.js";
 
 /**
  * Helper function to check station ownership
@@ -70,6 +78,24 @@ export class StationController {
       };
 
       const station = await StationService.createStation(stationWithOperator);
+
+      // Emit station created event
+      eventBus.publish(
+        createEvent<StationCreatedEvent>(
+          "station.created",
+          {
+            stationId: station._id.toString(),
+            operatorId: req.user.id,
+            name: station.name,
+            location: {
+              longitude: station.location.coordinates[0],
+              latitude: station.location.coordinates[1],
+            },
+            portCount: station.ports.length,
+          },
+          { userId: req.user.id },
+        ),
+      );
 
       res.status(201).json({
         status: "success",
@@ -186,14 +212,11 @@ export class StationController {
         return;
       }
 
-      // Get current status
-      const status = await StatusService.getStationStatus(id);
-
+      // occupied is now embedded in each port
       res.status(200).json({
         status: "success",
         data: {
           station,
-          occupancy: status?.portStatus || [],
         },
       });
     } catch (error) {
@@ -259,6 +282,18 @@ export class StationController {
 
       const station = await StationService.updateStation(id, updateData);
 
+      // Emit station updated event
+      eventBus.publish(
+        createEvent<StationUpdatedEvent>(
+          "station.updated",
+          {
+            stationId: id,
+            changes: updateData,
+          },
+          { userId: req.user.id },
+        ),
+      );
+
       res.status(200).json({
         status: "success",
         data: {
@@ -323,6 +358,18 @@ export class StationController {
       }
 
       await StationService.deleteStation(id);
+
+      // Emit station deleted event
+      eventBus.publish(
+        createEvent<StationDeletedEvent>(
+          "station.deleted",
+          {
+            stationId: id,
+            operatorId: existingStation.operatorId?.toString() || "",
+          },
+          { userId: req.user.id },
+        ),
+      );
 
       res.status(204).json({
         status: "success",
@@ -484,6 +531,44 @@ export class StationController {
         connectorType,
         occupied,
       );
+
+      // Find the port to get total count
+      const port = existingStation.ports.find(
+        (p: Port) => p.connectorType === connectorType,
+      );
+      const total = port?.total || 0;
+
+      // Emit occupancy event
+      eventBus.publish(
+        createEvent(
+          "occupancy.updated",
+          {
+            stationId: id,
+            connectorType,
+            occupied,
+            total,
+          },
+          { userId: req.user.id },
+        ),
+      );
+
+      // Check if station is full or became available
+      if (occupied >= total) {
+        eventBus.publish(
+          createEvent<OccupancyFullEvent>("occupancy.full", {
+            stationId: id,
+            connectorType,
+          }),
+        );
+      } else if (occupied < total) {
+        eventBus.publish(
+          createEvent<OccupancyAvailableEvent>("occupancy.available", {
+            stationId: id,
+            connectorType,
+            freeSlots: total - occupied,
+          }),
+        );
+      }
 
       res.status(200).json({
         status: "success",

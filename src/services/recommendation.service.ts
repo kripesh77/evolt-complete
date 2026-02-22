@@ -54,11 +54,11 @@ export class RecommendationService {
       return []; // No compatible stations in range
     }
 
-    // Step 3: Get status for all found stations
+    // Step 3: Get ports for all found stations (occupancy is in ports)
     const stationIds = stationsWithDistance.map((s) =>
       (s.station as unknown as { _id: { toString(): string } })._id.toString(),
     );
-    const statusMap = await StatusService.getMultipleStationStatus(stationIds);
+    const portsMap = await StatusService.getMultipleStationPorts(stationIds);
 
     // Step 4: Process each station and prepare for scoring
     const stationScoreInputs: Array<
@@ -78,16 +78,17 @@ export class RecommendationService {
 
       if (!bestPort) continue;
 
-      // Get status for this station
-      const status = statusMap.get(
-        (station as unknown as { _id: { toString(): string } })._id.toString(),
-      );
-      const portStatus = status?.portStatus || [];
+      // Get ports for this station (occupancy is embedded in each port)
+      const ports =
+        portsMap.get(
+          (
+            station as unknown as { _id: { toString(): string } }
+          )._id.toString(),
+        ) || station.ports;
 
       // Calculate availability for compatible ports
       const availability = StatusService.calculateFreeSlots(
-        station.ports,
-        portStatus,
+        ports,
         vehicleProfile.vehicleType,
         vehicleProfile.compatibleConnectors,
       );

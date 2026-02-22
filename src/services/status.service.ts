@@ -1,42 +1,38 @@
-import StationStatus, {
-  type StationStatusDocument,
-} from "../models/StationStatus.js";
-import type {
-  ConnectorType,
-  PortStatus,
-  VehicleType,
-  Port,
-} from "../types/vehicle.js";
+import Station, { type StationDocument } from "../models/Station.js";
+import type { ConnectorType, VehicleType, Port } from "../types/vehicle.js";
 
 /**
  * StatusService - Handles station occupancy status operations
+ * Uses occupied field directly in ports array
  */
 export class StatusService {
   /**
-   * Get status for a station
+   * Get station with occupancy (occupied is now in ports)
    */
-  static async getStationStatus(
+  static async getStationWithStatus(
     stationId: string,
-  ): Promise<StationStatusDocument | null> {
-    return StationStatus.findOne({ stationId }).exec();
+  ): Promise<StationDocument | null> {
+    return Station.findById(stationId).exec();
   }
 
   /**
-   * Get status for multiple stations
+   * Get ports with occupancy for multiple stations
    */
-  static async getMultipleStationStatus(
+  static async getMultipleStationPorts(
     stationIds: string[],
-  ): Promise<Map<string, StationStatusDocument>> {
-    const statuses = await StationStatus.find({
-      stationId: { $in: stationIds },
-    }).exec();
+  ): Promise<Map<string, Port[]>> {
+    const stations = await Station.find({
+      _id: { $in: stationIds },
+    })
+      .select("_id ports")
+      .exec();
 
-    const statusMap = new Map<string, StationStatusDocument>();
-    statuses.forEach((status) => {
-      statusMap.set(status.stationId.toString(), status);
+    const portsMap = new Map<string, Port[]>();
+    stations.forEach((station) => {
+      portsMap.set(station._id.toString(), station.ports);
     });
 
-    return statusMap;
+    return portsMap;
   }
 
   /**
@@ -46,8 +42,8 @@ export class StatusService {
     stationId: string,
     connectorType: ConnectorType,
     occupied: number,
-  ): Promise<StationStatusDocument> {
-    return StationStatus.updateOccupancy(stationId, connectorType, occupied);
+  ): Promise<StationDocument | null> {
+    return Station.updateOccupancy(stationId, connectorType, occupied);
   }
 
   /**
@@ -56,17 +52,17 @@ export class StatusService {
   static async incrementOccupancy(
     stationId: string,
     connectorType: ConnectorType,
-  ): Promise<StationStatusDocument | null> {
-    const status = await StationStatus.findOneAndUpdate(
-      { stationId, "portStatus.connectorType": connectorType },
+  ): Promise<StationDocument | null> {
+    const station = await Station.findOneAndUpdate(
+      { _id: stationId, "ports.connectorType": connectorType },
       {
-        $inc: { "portStatus.$.occupied": 1 },
-        $set: { lastUpdated: new Date() },
+        $inc: { "ports.$.occupied": 1 },
+        $set: { lastStatusUpdate: new Date() },
       },
       { new: true },
     ).exec();
 
-    return status;
+    return station;
   }
 
   /**
@@ -75,21 +71,21 @@ export class StatusService {
   static async decrementOccupancy(
     stationId: string,
     connectorType: ConnectorType,
-  ): Promise<StationStatusDocument | null> {
-    const status = await StationStatus.findOneAndUpdate(
+  ): Promise<StationDocument | null> {
+    const station = await Station.findOneAndUpdate(
       {
-        stationId,
-        "portStatus.connectorType": connectorType,
-        "portStatus.occupied": { $gt: 0 },
+        _id: stationId,
+        "ports.connectorType": connectorType,
+        "ports.occupied": { $gt: 0 },
       },
       {
-        $inc: { "portStatus.$.occupied": -1 },
-        $set: { lastUpdated: new Date() },
+        $inc: { "ports.$.occupied": -1 },
+        $set: { lastStatusUpdate: new Date() },
       },
       { new: true },
     ).exec();
 
-    return status;
+    return station;
   }
 
   /**
@@ -99,13 +95,11 @@ export class StatusService {
     stationId: string,
     connectorType: ConnectorType,
   ): Promise<number> {
-    const status = await StationStatus.findOne({ stationId }).exec();
-    if (!status) return 0;
+    const station = await Station.findById(stationId).select("ports").exec();
+    if (!station) return 0;
 
-    const portStatus = status.portStatus.find(
-      (ps) => ps.connectorType === connectorType,
-    );
-    return portStatus?.occupied || 0;
+    const port = station.ports.find((p) => p.connectorType === connectorType);
+    return port?.occupied || 0;
   }
 
   /**
@@ -113,7 +107,6 @@ export class StatusService {
    */
   static calculateFreeSlots(
     ports: Port[],
-    portStatus: PortStatus[],
     vehicleType: VehicleType,
     compatibleConnectors: ConnectorType[],
   ): { freeSlots: number; totalSlots: number; occupiedSlots: number } {
@@ -129,12 +122,10 @@ export class StatusService {
       0,
     );
 
-    const occupiedSlots = compatiblePorts.reduce((sum, port) => {
-      const status = portStatus.find(
-        (ps) => ps.connectorType === port.connectorType,
-      );
-      return sum + (status?.occupied || 0);
-    }, 0);
+    const occupiedSlots = compatiblePorts.reduce(
+      (sum, port) => sum + (port.occupied || 0),
+      0,
+    );
 
     const freeSlots = Math.max(0, totalSlots - occupiedSlots);
 
@@ -147,34 +138,22 @@ export class StatusService {
   static async bulkUpdateOccupancy(
     stationId: string,
     updates: Array<{ connectorType: ConnectorType; occupied: number }>,
-  ): Promise<StationStatusDocument | null> {
-    let status = await StationStatus.findOne({ stationId }).exec();
+  ): Promise<StationDocument | null> {
+    const station = await Station.findById(stationId).exec();
+    if (!station) return null;
 
-    if (!status) {
-      // Create new status document
-      status = await StationStatus.create({
-        stationId,
-        portStatus: updates,
-      });
-    } else {
-      // Update existing status
-      for (const update of updates) {
-        const existingPort = status.portStatus.find(
-          (ps) => ps.connectorType === update.connectorType,
-        );
-
-        if (existingPort) {
-          existingPort.occupied = update.occupied;
-        } else {
-          status.portStatus.push(update);
-        }
+    // Update occupied field in matching ports
+    for (const update of updates) {
+      const port = station.ports.find(
+        (p) => p.connectorType === update.connectorType,
+      );
+      if (port) {
+        port.occupied = update.occupied;
       }
-
-      status.lastUpdated = new Date();
-      await status.save();
     }
 
-    return status;
+    station.lastStatusUpdate = new Date();
+    return station.save();
   }
 
   /**
@@ -182,13 +161,13 @@ export class StatusService {
    */
   static async resetOccupancy(
     stationId: string,
-  ): Promise<StationStatusDocument | null> {
-    return StationStatus.findOneAndUpdate(
-      { stationId },
+  ): Promise<StationDocument | null> {
+    return Station.findByIdAndUpdate(
+      stationId,
       {
         $set: {
-          "portStatus.$[].occupied": 0,
-          lastUpdated: new Date(),
+          "ports.$[].occupied": 0,
+          lastStatusUpdate: new Date(),
         },
       },
       { new: true },
@@ -200,7 +179,6 @@ export class StatusService {
    */
   static async getStationsWithAvailability(
     stationIds: string[],
-    ports: Map<string, Port[]>,
     vehicleType: VehicleType,
     compatibleConnectors: ConnectorType[],
   ): Promise<
@@ -209,20 +187,17 @@ export class StatusService {
       { freeSlots: number; totalSlots: number; occupiedSlots: number }
     >
   > {
-    const statusMap = await this.getMultipleStationStatus(stationIds);
+    const portsMap = await this.getMultipleStationPorts(stationIds);
     const availabilityMap = new Map<
       string,
       { freeSlots: number; totalSlots: number; occupiedSlots: number }
     >();
 
     for (const stationId of stationIds) {
-      const stationPorts = ports.get(stationId) || [];
-      const status = statusMap.get(stationId);
-      const portStatus = status?.portStatus || [];
+      const ports = portsMap.get(stationId) || [];
 
       const availability = this.calculateFreeSlots(
-        stationPorts,
-        portStatus,
+        ports,
         vehicleType,
         compatibleConnectors,
       );

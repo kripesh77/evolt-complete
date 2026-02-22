@@ -32,19 +32,14 @@ export interface RecommendationRequest {
   currentLocation: GeoLocation;
 }
 
-// Port Information
+// Port Information (with occupancy tracking)
 export interface Port {
   connectorType: ConnectorType;
   vehicleType: VehicleType;
   powerKW: number;
   total: number;
+  occupied: number; // Current occupied slots
   pricePerKWh: number;
-}
-
-// Port Status
-export interface PortStatus {
-  connectorType: ConnectorType;
-  occupied: number;
 }
 
 // Station interface (for type safety)
@@ -58,18 +53,11 @@ export interface IStation {
   };
   address: string;
   ports: Port[];
+  lastStatusUpdate?: Date;
   operatingHours: string;
   status: StationStatusType;
   createdAt?: Date;
   updatedAt?: Date;
-}
-
-// Station Status interface
-export interface IStationStatus {
-  _id?: string;
-  stationId: string;
-  portStatus: PortStatus[];
-  lastUpdated: Date;
 }
 
 // Recommended Station Response

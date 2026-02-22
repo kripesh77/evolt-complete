@@ -6,8 +6,12 @@ import express, {
 import { stationRouter } from "./routes/station.routes.js";
 import { recommendationRouter } from "./routes/recommendation.routes.js";
 import authRouter from "./routes/authenticatedRoute.js";
+import { initializeEventHandlers } from "./events/index.js";
 
 export const app = express();
+
+// Initialize event-driven architecture
+initializeEventHandlers();
 
 // Body parser middleware
 app.use(express.json({ limit: "10kb" }));

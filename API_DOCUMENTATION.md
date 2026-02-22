@@ -1,8 +1,8 @@
 # EV Charging Station API Documentation
 
-**Version:** 2.0.0  
+**Version:** 3.0.0  
 **Base URL:** `http://localhost:3000/api/v1`  
-**Last Updated:** January 27, 2026
+**Last Updated:** February 4, 2026
 
 ---
 
@@ -977,9 +977,19 @@ Update occupancy for a specific connector type.
   "status": "success",
   "data": {
     "status": {
-      "stationId": "507f1f77bcf86cd799439011",
-      "portStatus": [{ "connectorType": "CCS", "occupied": 2 }],
-      "lastUpdated": "2026-01-27T10:30:00.000Z"
+      "_id": "507f1f77bcf86cd799439011",
+      "name": "Downtown Hub",
+      "ports": [
+        {
+          "connectorType": "CCS",
+          "vehicleType": "car",
+          "powerKW": 150,
+          "total": 4,
+          "occupied": 2,
+          "pricePerKWh": 15
+        }
+      ],
+      "lastStatusUpdate": "2026-01-27T10:30:00.000Z"
     }
   }
 }
@@ -1010,13 +1020,35 @@ Bulk update occupancy for multiple connector types.
   "status": "success",
   "data": {
     "status": {
-      "stationId": "507f1f77bcf86cd799439011",
-      "portStatus": [
-        { "connectorType": "CCS", "occupied": 2 },
-        { "connectorType": "Type2", "occupied": 3 },
-        { "connectorType": "AC_SLOW", "occupied": 5 }
+      "_id": "507f1f77bcf86cd799439011",
+      "name": "Downtown Hub",
+      "ports": [
+        {
+          "connectorType": "CCS",
+          "vehicleType": "car",
+          "powerKW": 150,
+          "total": 4,
+          "occupied": 2,
+          "pricePerKWh": 15
+        },
+        {
+          "connectorType": "Type2",
+          "vehicleType": "car",
+          "powerKW": 22,
+          "total": 6,
+          "occupied": 3,
+          "pricePerKWh": 12
+        },
+        {
+          "connectorType": "AC_SLOW",
+          "vehicleType": "bike",
+          "powerKW": 3,
+          "total": 8,
+          "occupied": 5,
+          "pricePerKWh": 8
+        }
       ],
-      "lastUpdated": "2026-01-27T10:30:00.000Z"
+      "lastStatusUpdate": "2026-01-27T10:30:00.000Z"
     }
   }
 }
@@ -1290,23 +1322,8 @@ Get emergency recommendations when battery is critically low.
   vehicleType: "bike" | "car",
   powerKW: number,
   total: number,
+  occupied: number,  // Current occupied slots (0 by default)
   pricePerKWh: number
-}
-```
-
-### StationStatus
-
-```typescript
-{
-  _id: ObjectId,
-  stationId: ObjectId,
-  portStatus: [
-    {
-      connectorType: string,
-      occupied: number
-    }
-  ],
-  lastUpdated: Date
 }
 ```
 
@@ -1412,6 +1429,80 @@ Currently, no rate limiting is implemented. For production deployment, consider 
 
 ---
 
+## Event-Driven Architecture
+
+The API implements a publish-subscribe event system for loose coupling and extensibility.
+
+### Event Categories
+
+| Category      | Events                                                                           | Description                    |
+| ------------- | -------------------------------------------------------------------------------- | ------------------------------ |
+| **Station**   | `station.created`, `station.updated`, `station.deleted`, `station.statusChanged` | Station lifecycle events       |
+| **Occupancy** | `occupancy.updated`, `occupancy.full`, `occupancy.available`                     | Real-time availability changes |
+| **User**      | `user.registered`, `user.loggedIn`, `user.updated`, `user.deactivated`           | User account events            |
+| **Vehicle**   | `vehicleProfile.added`, `vehicleProfile.removed`                                 | Vehicle profile changes        |
+| **Favorites** | `favorite.added`, `favorite.removed`                                             | Favorite station management    |
+| **System**    | `system.error`, `system.startup`, `system.shutdown`                              | System-level events            |
+
+### Event Payloads
+
+Events are automatically emitted when actions occur. Example payloads:
+
+**Station Created Event**
+
+```json
+{
+  "type": "station.created",
+  "timestamp": "2026-02-04T10:30:00.000Z",
+  "userId": "65b2c3d4e5f6a7b8",
+  "payload": {
+    "stationId": "65c3d4e5f6a7b8c9",
+    "operatorId": "65b2c3d4e5f6a7b8",
+    "name": "EV Hub Connaught Place",
+    "location": { "longitude": 77.2195, "latitude": 28.6315 },
+    "portCount": 4
+  }
+}
+```
+
+**User Registered Event**
+
+```json
+{
+  "type": "user.registered",
+  "timestamp": "2026-02-04T09:15:00.000Z",
+  "payload": {
+    "userId": "65a1b2c3d4e5f6a7",
+    "email": "newuser@example.com",
+    "role": "user",
+    "name": "Rahul Sharma"
+  }
+}
+```
+
+**Occupancy Full Event**
+
+```json
+{
+  "type": "occupancy.full",
+  "timestamp": "2026-02-04T18:45:00.000Z",
+  "payload": {
+    "stationId": "65c3d4e5f6a7b8c9",
+    "connectorType": "CCS"
+  }
+}
+```
+
+### Future Webhook Integration
+
+Events can be extended to support webhooks for real-time notifications:
+
+- Push notifications when favorite station becomes available
+- Operator alerts for station status changes
+- Admin notifications for system errors
+
+---
+
 ## Test Credentials
 
 For development/testing:
@@ -1426,6 +1517,13 @@ For development/testing:
 ---
 
 ## Changelog
+
+### v3.0.0 (February 2026)
+
+- **Event-Driven Architecture** - Implemented publish-subscribe pattern with EventBus
+- **Event Types** - Station, occupancy, user, vehicle, favorite, and system events
+- **Event Handlers** - Centralized logging and analytics for all events
+- **Loose Coupling** - Controllers emit events without knowing handlers
 
 ### v2.0.0 (January 2026)
 

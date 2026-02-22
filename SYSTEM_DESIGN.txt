@@ -128,14 +128,14 @@ A backend API system that provides:
                               └────────────────────┬───────────────────────┘
                                                    │
                                                    ▼
-                              ┌────────────────────────────────────────────┐
-                              │              📊 MODELS                     │
-                              ├───────────┬───────────┬────────────────────┤
-                              │   User    │  Station  │   StationStatus    │
-                              │ (roles)   │           │                    │
-                              └─────┬─────┴─────┬─────┴──────────┬─────────┘
-                                    │           │                │
-                                    └───────────┼────────────────┘
+                              ┌─────────────────────────────────────┐
+                              │          📊 MODELS                 │
+                              ├─────────────────┬───────────────────┤
+                              │      User       │      Station      │
+                              │    (roles)      │ (embedded ports)  │
+                              └────────┬────────┴─────────┬─────────┘
+                                       │                  │
+                                       └────────┬─────────┘
                                                 │
                                                 ▼
                               ┌────────────────────────────────────────────┐
@@ -182,8 +182,7 @@ A backend API system that provides:
 ├── 📁 models/
 │   ├── 📄 user.ts            # User schema (with roles)
 │   ├── 📄 operator.ts        # Legacy operator schema
-│   ├── 📄 Station.ts         # Station schema
-│   └── 📄 StationStatus.ts   # Occupancy schema
+│   └── 📄 Station.ts         # Station schema (with embedded occupancy)
 ├── 📁 routes/
 │   ├── 📄 authRoute.ts
 │   ├── 📄 station.routes.ts
@@ -272,31 +271,18 @@ A backend API system that provides:
     │ timestamps                           │
     └──────────────┬───────────────────────┘
                    │
-                   │ 1:1
-                   ▼
-    ┌──────────────────────────────────────┐
-    │          STATION_STATUS              │
-    ├──────────────────────────────────────┤
-    │ _id: ObjectId                        │
-    │ stationId: Ref (Station)             │
-    │ portStatus: [{                       │
-    │   connectorType: String              │
-    │   occupied: Number                   │
-    │ }]                                   │
-    │ lastUpdated: Date                    │
-    └──────────────────────────────────────┘
-
     ┌──────────────────────────────────────────────────────────────────────┐
     │              EMBEDDED DOCUMENTS                                       │
     ├──────────────────────────────────────────────────────────────────────┤
     │                                                                      │
-    │  PORT                              │  VEHICLE_PROFILE                │
+    │  PORT (with embedded occupancy)    │  VEHICLE_PROFILE                │
     │  ─────                             │  ───────────────                │
     │  connectorType: enum               │  name: String                   │
     │  vehicleType: "bike" | "car"       │  vehicleType: "bike" | "car"    │
     │  powerKW: Number                   │  batteryCapacity: Number        │
     │  total: Number                     │  connectors: [String]           │
-    │  pricePerKWh: Number               │  efficiency?: Number            │
+    │  occupied: Number (default: 0)     │  efficiency?: Number            │
+    │  pricePerKWh: Number               │                                 │
     │                                                                      │
     └──────────────────────────────────────────────────────────────────────┘
 ```
@@ -347,26 +333,21 @@ A backend API system that provides:
     pricePerKWh: { type: Number, min: 0 }
   }],
   operatingHours: { type: String, default: '24/7' },
+  ports: [{
+    connectorType: { type: String, enum: ['AC_SLOW', 'Type2', 'CCS', 'CHAdeMO'] },
+    vehicleType: { type: String, enum: ['bike', 'car'] },
+    powerKW: { type: Number, min: 0.5, max: 350 },
+    total: { type: Number, min: 1 },
+    occupied: { type: Number, min: 0, default: 0 },  // Embedded occupancy tracking
+    pricePerKWh: { type: Number, min: 0 }
+  }],
+  lastStatusUpdate: { type: Date, default: Date.now },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' }
 }
 // Indexes: location (2dsphere), status, { status, ports.vehicleType }
 // Virtuals: totalPorts, bikePorts, carPorts
-// Statics: findNearby(lng, lat, radiusKm, vehicleType)
-```
-
-### StationStatus Schema
-
-```javascript
-{
-  stationId: { type: ObjectId, ref: 'Station', required: true, unique: true },
-  portStatus: [{
-    connectorType: { type: String, enum: ['AC_SLOW', 'Type2', 'CCS', 'CHAdeMO'] },
-    occupied: { type: Number, min: 0 }
-  }],
-  lastUpdated: { type: Date, default: Date.now }
-}
-// Indexes: stationId, lastUpdated
-// Statics: getByStationId(), updateOccupancy()
+// Statics: findNearby(lng, lat, radiusKm, vehicleType), updateOccupancy()
+// Methods: getOccupiedCount(connectorType), getTotalOccupied()
 ```
 
 ---
@@ -779,19 +760,20 @@ finalScore = (distance × 0.25) +
 │                       DATABASE: ev_charging_station                     │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                         │
-│   ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐   │
-│   │   operators     │     │    stations     │     │ stationstatuses │   │
-│   ├─────────────────┤     ├─────────────────┤     ├─────────────────┤   │
-│   │ _id             │◀────│ operatorId      │     │ stationId       │──▶│
-│   │ name            │     │ _id             │◀────│ portStatus[]    │   │
-│   │ email        ◉  │     │ name            │     │ lastUpdated     │   │
-│   │ password     🔒 │     │ location     🌍 │     │                 │   │
-│   │ company         │     │ address         │     │                 │   │
-│   │ phone           │     │ ports[]         │     │                 │   │
-│   │ isActive        │     │ operatingHours  │     │                 │   │
-│   │ timestamps      │     │ status          │     │                 │   │
-│   │                 │     │ timestamps      │     │                 │   │
-│   └─────────────────┘     └─────────────────┘     └─────────────────┘   │
+│   ┌─────────────────┐     ┌─────────────────────────────────────────┐   │
+│   │   users         │     │    stations (with embedded occupancy)   │   │
+│   ├─────────────────┤     ├─────────────────────────────────────────┤   │
+│   │ _id             │◀────│ operatorId                              │   │
+│   │ name            │     │ _id                                     │   │
+│   │ email        ◉  │     │ name                                    │   │
+│   │ password     🔒 │     │ location     🌍                         │   │
+│   │ role            │     │ address                                 │   │
+│   │ company         │     │ ports[] (with occupied field)           │   │
+│   │ phone           │     │ operatingHours                          │   │
+│   │ isActive        │     │ status                                  │   │
+│   │ vehicleProfiles │     │ lastStatusUpdate                        │   │
+│   │ timestamps      │     │ timestamps                              │   │
+│   └─────────────────┘     └─────────────────────────────────────────┘   │
 │                                                                         │
 │   Legend:  ◉ = Unique Index   🔒 = Select: false   🌍 = 2dsphere Index  │
 │                                                                         │
@@ -800,15 +782,14 @@ finalScore = (distance × 0.25) +
 
 ## Indexes
 
-| Collection        | Index                         | Type     | Purpose                |
-| ----------------- | ----------------------------- | -------- | ---------------------- |
-| `operators`       | `email`                       | Unique   | Fast login lookup      |
-| `stations`        | `location`                    | 2dsphere | Geospatial queries     |
-| `stations`        | `status`                      | Regular  | Filter active/inactive |
-| `stations`        | `operatorId`                  | Regular  | Owner's stations       |
-| `stations`        | `{status, ports.vehicleType}` | Compound | Combined filtering     |
-| `stationstatuses` | `stationId`                   | Unique   | One status per station |
-| `stationstatuses` | `lastUpdated`                 | Regular  | Recent updates         |
+| Collection | Index                         | Type     | Purpose                |
+| ---------- | ----------------------------- | -------- | ---------------------- |
+| `users`    | `email`                       | Unique   | Fast login lookup      |
+| `users`    | `role`                        | Regular  | Filter by role         |
+| `stations` | `location`                    | 2dsphere | Geospatial queries     |
+| `stations` | `status`                      | Regular  | Filter active/inactive |
+| `stations` | `operatorId`                  | Regular  | Owner's stations       |
+| `stations` | `{status, ports.vehicleType}` | Compound | Combined filtering     |
 
 ## Sample Documents
 

@@ -163,8 +163,7 @@ src/
 ├── types/
 │   └── vehicle.ts         # TypeScript interfaces
 ├── models/
-│   ├── Station.ts         # Station Mongoose model
-│   └── StationStatus.ts   # Station status model
+│   └── Station.ts         # Station Mongoose model (with embedded occupancy)
 ├── services/
 │   ├── geo.service.ts     # Geospatial queries
 │   ├── station.service.ts # Station CRUD

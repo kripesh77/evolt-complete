@@ -1,10 +1,9 @@
 import Station, { type StationDocument } from "../models/Station.js";
-import StationStatus from "../models/StationStatus.js";
 import type {
   IStation,
   Port,
-  ConnectorType,
   VehicleType,
+  ConnectorType,
 } from "../types/vehicle.js";
 
 /**
@@ -17,20 +16,18 @@ export class StationService {
   static async createStation(
     stationData: Omit<IStation, "_id" | "createdAt" | "updatedAt">,
   ): Promise<StationDocument> {
-    const station = new Station(stationData);
-    await station.save();
+    // Initialize occupied=0 for each port if not provided
+    const portsWithOccupancy = stationData.ports.map((port) => ({
+      ...port,
+      occupied: port.occupied ?? 0,
+    }));
 
-    // Initialize station status with zero occupancy for all connector types
-    const connectorTypes = station.ports.map(
-      (port: Port) => port.connectorType,
-    );
-    const uniqueConnectorTypes = [
-      ...new Set(connectorTypes),
-    ] as ConnectorType[];
-    await StationStatus.initializeForStation(
-      station._id.toString(),
-      uniqueConnectorTypes,
-    );
+    const station = new Station({
+      ...stationData,
+      ports: portsWithOccupancy,
+      lastStatusUpdate: new Date(),
+    });
+    await station.save();
 
     return station;
   }
@@ -83,8 +80,6 @@ export class StationService {
   static async deleteStation(
     stationId: string,
   ): Promise<StationDocument | null> {
-    // Also delete associated status
-    await StationStatus.deleteOne({ stationId });
     return Station.findByIdAndDelete(stationId).exec();
   }
 
@@ -95,20 +90,16 @@ export class StationService {
     stationId: string,
     port: Port,
   ): Promise<StationDocument | null> {
-    const station = await Station.findByIdAndUpdate(
-      stationId,
-      { $push: { ports: port } },
-      { new: true, runValidators: true },
-    ).exec();
+    const station = await Station.findById(stationId).exec();
+    if (!station) return null;
 
-    if (station) {
-      // Update station status to include new connector type
-      await StationStatus.initializeForStation(
-        stationId,
-        station.ports.map((p: Port) => p.connectorType) as ConnectorType[],
-      );
-    }
+    // Add the port with occupied=0 if not provided
+    station.ports.push({
+      ...port,
+      occupied: port.occupied ?? 0,
+    });
 
+    await station.save();
     return station;
   }
 

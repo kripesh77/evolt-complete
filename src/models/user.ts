@@ -174,6 +174,14 @@ userSchema.pre("save", async function () {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
+// pre-save hook to remove vehiclesProfiles and favouritesStations field for role other than "user"
+userSchema.pre("save", function () {
+  if (this.role !== "user") {
+    this.vehicleProfiles = undefined;
+    this.favoriteStations = undefined;
+  }
+});
+
 // Instance method to compare passwords
 userSchema.methods.comparePassword = async function (
   candidatePassword: string,

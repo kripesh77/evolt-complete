@@ -1,9 +1,8 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Station from "../models/Station.js";
-import StationStatus from "../models/StationStatus.js";
 import User from "../models/user.js";
-import type { ConnectorType, IStation } from "../types/vehicle.js";
+import type { IStation, Port } from "../types/vehicle.js";
 
 dotenv.config({ path: "./config.env" });
 
@@ -304,7 +303,6 @@ async function seedDatabase() {
     // Clear existing data
     console.log("🧹 Clearing existing data...");
     await Station.deleteMany({});
-    await StationStatus.deleteMany({});
     await User.deleteMany({});
 
     // Create test users with different roles
@@ -360,42 +358,28 @@ async function seedDatabase() {
     });
     console.log(`✅ Created user: ${regularUser.email}`);
 
-    // Add operatorId to stations (alternate between operators)
-    const stationsWithOperators = sampleStations.map((station, index) => ({
-      ...station,
-      operatorId: index % 2 === 0 ? operator1._id : operator2._id,
-    }));
+    // Add operatorId and random occupied values to stations (alternate between operators)
+    const stationsWithOperators = sampleStations.map((station, index) => {
+      // Add random occupied values directly to each port
+      const portsWithOccupancy: Port[] = station.ports.map((port) => ({
+        ...port,
+        occupied: Math.floor(Math.random() * (port.total + 1)),
+      }));
+
+      return {
+        ...station,
+        operatorId: index % 2 === 0 ? operator1._id : operator2._id,
+        ports: portsWithOccupancy,
+        lastStatusUpdate: new Date(),
+      };
+    });
 
     // Insert stations
     console.log("📍 Inserting sample stations...");
     const createdStations = await Station.insertMany(stationsWithOperators);
-    console.log(`✅ Created ${createdStations.length} stations`);
-
-    // Initialize status for each station
-    console.log("📊 Initializing station statuses...");
-    for (const station of createdStations) {
-      const connectorTypes = [
-        ...new Set(
-          station.ports.map((p: { connectorType: string }) => p.connectorType),
-        ),
-      ] as ConnectorType[];
-
-      // Create random occupancy for demo purposes
-      const portStatus = connectorTypes.map((connectorType: ConnectorType) => {
-        const port = station.ports.find(
-          (p: { connectorType: string }) => p.connectorType === connectorType,
-        );
-        const maxOccupied = port ? port.total : 0;
-        const occupied = Math.floor(Math.random() * (maxOccupied + 1));
-        return { connectorType, occupied };
-      });
-
-      await StationStatus.create({
-        stationId: station._id,
-        portStatus,
-      });
-    }
-    console.log("✅ Station statuses initialized");
+    console.log(
+      `✅ Created ${createdStations.length} stations with embedded occupancy`,
+    );
 
     // Print summary
     console.log("\n📊 Database seeded successfully!");

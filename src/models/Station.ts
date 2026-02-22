@@ -1,7 +1,12 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
-import type { IStation, Port, VehicleType } from "../types/vehicle.js";
+import type {
+  IStation,
+  Port,
+  VehicleType,
+  ConnectorType,
+} from "../types/vehicle.js";
 
-// Port Schema (subdocument)
+// Port Schema (subdocument with occupancy tracking)
 const PortSchema = new Schema<Port>(
   {
     connectorType: {
@@ -31,6 +36,11 @@ const PortSchema = new Schema<Port>(
       required: [true, "Total ports count is required"],
       min: [1, "Must have at least 1 port"],
     },
+    occupied: {
+      type: Number,
+      min: [0, "Occupied count cannot be negative"],
+      default: 0,
+    },
     pricePerKWh: {
       type: Number,
       required: [true, "Price per kWh is required"],
@@ -41,7 +51,10 @@ const PortSchema = new Schema<Port>(
 );
 
 // Station Document interface (extends IStation with Mongoose Document)
-export interface StationDocument extends Omit<IStation, "_id">, Document {}
+export interface StationDocument extends Omit<IStation, "_id">, Document {
+  getOccupiedCount(connectorType: ConnectorType): number;
+  getTotalOccupied(): number;
+}
 
 // Station Schema
 const StationSchema = new Schema<StationDocument>(
@@ -110,6 +123,10 @@ const StationSchema = new Schema<StationDocument>(
       },
       default: "active",
     },
+    lastStatusUpdate: {
+      type: Date,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,
@@ -173,6 +190,40 @@ StationSchema.statics.findNearby = function (
   return this.find(query);
 };
 
+// Static method to update port occupancy (updates occupied field directly in ports array)
+StationSchema.statics.updateOccupancy = async function (
+  stationId: string,
+  connectorType: ConnectorType,
+  occupied: number,
+): Promise<StationDocument | null> {
+  return this.findOneAndUpdate(
+    { _id: stationId, "ports.connectorType": connectorType },
+    {
+      $set: {
+        "ports.$.occupied": occupied,
+        lastStatusUpdate: new Date(),
+      },
+    },
+    { new: true },
+  ).exec();
+};
+
+// Instance method to get occupied count for a specific connector type
+StationSchema.methods.getOccupiedCount = function (
+  connectorType: ConnectorType,
+): number {
+  const port = this.ports.find((p: Port) => p.connectorType === connectorType);
+  return port ? port.occupied : 0;
+};
+
+// Instance method to get total occupied across all ports
+StationSchema.methods.getTotalOccupied = function (): number {
+  return this.ports.reduce(
+    (total: number, port: Port) => total + (port.occupied || 0),
+    0,
+  );
+};
+
 // Model with statics type
 interface StationModel extends Model<StationDocument> {
   findNearby(
@@ -181,6 +232,11 @@ interface StationModel extends Model<StationDocument> {
     maxDistanceKm: number,
     vehicleType?: VehicleType,
   ): ReturnType<Model<StationDocument>["find"]>;
+  updateOccupancy(
+    stationId: string,
+    connectorType: ConnectorType,
+    occupied: number,
+  ): Promise<StationDocument | null>;
 }
 
 const Station = mongoose.model<StationDocument, StationModel>(
