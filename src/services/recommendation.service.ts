@@ -217,6 +217,7 @@ export class RecommendationService {
       address: station.address,
       distanceKm: 0, // Would need aggregation to get actual distance
       status: station.status,
+      location: station.location,
       portSummary: {
         bikePorts: station.ports
           .filter((p: Port) => p.vehicleType === "bike")

@@ -1,12 +1,9 @@
-import express, {
-  type Request,
-  type Response,
-  type NextFunction,
-} from "express";
+import express, { type Request, type Response } from "express";
 import { stationRouter } from "./routes/station.routes.js";
 import { recommendationRouter } from "./routes/recommendation.routes.js";
 import authRouter from "./routes/authenticatedRoute.js";
 import { initializeEventHandlers } from "./events/index.js";
+import cors from "cors";
 
 export const app = express();
 
@@ -16,6 +13,7 @@ initializeEventHandlers();
 // Body parser middleware
 app.use(express.json({ limit: "10kb" }));
 app.use(express.urlencoded({ extended: true, limit: "10kb" }));
+app.use(cors());
 
 // Health check endpoint
 app.get("/health", (req: Request, res: Response) => {
@@ -46,7 +44,7 @@ interface AppError extends Error {
   isOperational?: boolean;
 }
 
-app.use((err: AppError, req: Request, res: Response, next: NextFunction) => {
+app.use((err: AppError, req: Request, res: Response) => {
   const statusCode = err.statusCode || 500;
   const status = err.status || "error";
 

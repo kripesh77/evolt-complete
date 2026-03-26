@@ -1,0 +1,703 @@
+================================================================================
+                 EV CHARGING STATION RECOMMENDATION SYSTEM
+                      TECHNICAL DOCUMENTATION
+================================================================================
+
+PROJECT OVERVIEW
+================================================================================
+This is a full-stack EV (Electric Vehicle) charging station recommendation 
+system designed to help EV users find the optimal charging station based on 
+their vehicle specifications, current battery level, location, and various 
+weighted factors. The system consists of three main components:
+
+1. Backend API (Node.js/Express/MongoDB)
+2. Mobile Application (React Native/Expo)
+3. Operator Dashboard (Next.js)
+
+================================================================================
+SYSTEM ARCHITECTURE
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              CLIENT LAYER                                   │
+├─────────────────────────────────┬───────────────────────────────────────────┤
+│     Mobile App (React Native)   │     Operator Dashboard (Next.js)          │
+│     - User authentication       │     - Station management                  │
+│     - Station discovery         │     - Occupancy updates                   │
+│     - Smart recommendations     │     - Analytics & stats                   │
+│     - Map-based navigation      │     - Profile management                  │
+└─────────────────────────────────┴───────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           BACKEND API LAYER                                 │
+│                    (Express 5.2.1 + TypeScript)                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Routes:                        │  Services:                                │
+│  - /api/auth                    │  - RecommendationService                  │
+│  - /api/users                   │  - GeoService                             │
+│  - /api/stations                │  - StatusService                          │
+│  - /api/recommendations         │  - AuthService                            │
+│  - /api/operators               │                                           │
+├─────────────────────────────────┴───────────────────────────────────────────┤
+│  Controllers:                   │  Middleware:                              │
+│  - authController               │  - authenticate (JWT validation)          │
+│  - stationController            │  - authorize (role-based access)          │
+│  - recommendationController     │  - errorHandler                           │
+│  - userController               │  - validateRequest                        │
+│  - operatorController           │                                           │
+└─────────────────────────────────┴───────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           DATABASE LAYER                                    │
+│                         (MongoDB + Mongoose 9.1.5)                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Collections:                                                               │
+│  - users (with embedded vehicleProfiles)                                    │
+│  - stations (with embedded ports and GeoJSON location)                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+DATA MODELS
+================================================================================
+
+1. USER MODEL (src/models/user.ts)
+---------------------------------
+{
+  _id: ObjectId,
+  name: String (2-100 chars),
+  email: String (unique, lowercase),
+  password: String (hashed with bcrypt, min 8 chars),
+  role: "user" | "operator" | "admin",
+  
+  // Operator-specific fields
+  company?: String,
+  phone?: String,
+  
+  // User-specific fields
+  vehicleProfiles?: [VehicleProfile],
+  favoriteStations?: [ObjectId],
+  
+  // Common fields
+  isActive: Boolean,
+  lastLogin?: Date,
+  createdAt: Date,
+  updatedAt: Date
+}
+
+VehicleProfile (embedded subdocument):
+{
+  _id: ObjectId (for deletion by ID),
+  vehicleType: "bike" | "car",
+  batteryCapacity_kWh: Number (0.5-200),
+  efficiency_kWh_per_km: Number (0.01-1),
+  batteryPercent: Number (0-100, default 100),
+  compatibleConnectors: ["AC_SLOW" | "Type2" | "CCS" | "CHAdeMO"]
+}
+
+Methods:
+- comparePassword(candidatePassword): Promise<boolean>
+- generateAuthToken(): string (JWT with 7d expiry)
+- isOperator(): boolean
+- isAdmin(): boolean
+- isRegularUser(): boolean
+
+Static Methods:
+- findByEmail(email): Promise<IUserDocument | null>
+- findOperators(): Promise<IUserDocument[]>
+- findAdmins(): Promise<IUserDocument[]>
+
+
+2. STATION MODEL (src/models/Station.ts)
+----------------------------------------
+{
+  _id: ObjectId,
+  name: String (max 100 chars),
+  operatorId: ObjectId (ref: User, indexed),
+  location: {
+    type: "Point",
+    coordinates: [longitude, latitude]  // GeoJSON format
+  },
+  address: String,
+  ports: [Port],
+  operatingHours: String (e.g., "24/7", "6:00 AM - 10:00 PM"),
+  status: "active" | "inactive",
+  lastStatusUpdate: Date,
+  createdAt: Date,
+  updatedAt: Date
+}
+
+Port (embedded subdocument, _id: false):
+{
+  connectorType: "AC_SLOW" | "Type2" | "CCS" | "CHAdeMO",
+  vehicleType: "bike" | "car",
+  powerKW: Number (0.5-350),
+  total: Number (min 1),
+  occupied: Number (0 to total, default 0),
+  pricePerKWh: Number (min 0)
+}
+
+Indexes:
+- location: "2dsphere" (for geospatial queries)
+- operatorId: 1 (for operator station lookup)
+- status: 1 (for filtering active stations)
+- "ports.connectorType": 1, "ports.vehicleType": 1 (compound for filtering)
+
+Methods:
+- getOccupiedCount(connectorType): number
+- getTotalOccupied(): number
+
+================================================================================
+CONNECTOR TYPE SPECIFICATIONS
+================================================================================
+
+| Connector | Vehicle | Power Range | Use Case                   |
+|-----------|---------|-------------|----------------------------|
+| AC_SLOW   | bike    | 0.5-3 kW    | Slow charging for e-bikes  |
+| Type2     | car     | 7-22 kW     | AC charging for cars       |
+| CCS       | car     | 50-350 kW   | DC fast charging           |
+| CHAdeMO   | car     | 50-100 kW   | DC fast (Japanese std)     |
+
+================================================================================
+RECOMMENDATION ALGORITHM
+================================================================================
+
+Location: src/services/recommendation.service.ts
+             src/utils/scoring.ts
+             src/utils/calculations.ts
+
+The recommendation engine uses a multi-factor weighted scoring system:
+
+STEP 1: Calculate Reachable Distance
+--------------------------------------
+reachable_km = (batteryCapacity × batteryPercent/100) / efficiency × SAFETY_BUFFER
+
+Where:
+- batteryCapacity: in kWh
+- batteryPercent: current charge (0-100)
+- efficiency: kWh per km (e.g., 0.15 for car, 0.02 for bike)
+- SAFETY_BUFFER: 0.8 (80% of theoretical range)
+
+STEP 2: Find Compatible Stations
+---------------------------------
+Using MongoDB $geoNear aggregation pipeline:
+- Filter by: maxDistance (reachable_km converted to meters)
+- Filter by: vehicleType match in ports
+- Filter by: compatible connector types
+- Returns: stations with exact distance in km
+
+STEP 3: Calculate Individual Scores
+------------------------------------
+For each station, calculate normalized scores (0-1 range):
+
+a) Distance Score (lower is better):
+   score = 1 - (distance / maxDistance)
+
+b) Availability Score (higher is better):
+   baseScore = freeSlots / totalSlots
+   bonus = freeSlots > 0 ? 0.2 : 0
+   score = min(1, baseScore + bonus)
+
+c) Wait Time Score (lower is better):
+   waitTime = occupied >= total ? queuePosition × avgChargeTime : 0
+   score = 1 - (waitTime / maxWaitMinutes)
+   where maxWaitMinutes = 60
+
+d) Power Score (higher is better for fast charging):
+   maxPower = bike ? 5 kW : 350 kW
+   score = powerKW / maxPower
+
+e) Cost Score (lower is better):
+   maxPrice = bike ? ₹10/kWh : ₹20/kWh
+   score = 1 - (pricePerKWh / maxPrice)
+
+STEP 4: Apply Weighted Average
+-------------------------------
+Default weights (configurable):
+{
+  distance: 0.25,
+  availability: 0.20,
+  waitTime: 0.20,
+  power: 0.20,
+  cost: 0.15
+}
+
+finalScore = Σ(score_i × weight_i) / Σ(weight_i)
+
+STEP 5: Build Response
+-----------------------
+For each recommended station, calculate:
+- energyNeeded = batteryCapacity × (targetPercent - currentPercent) / 100
+- chargingTime = energyNeeded / (powerKW × efficiency)  // efficiency = 0.9
+- estimatedCost = energyNeeded × pricePerKWh
+- canReachWithCurrentCharge = distance < reachable_km
+
+================================================================================
+API ENDPOINTS
+================================================================================
+
+AUTHENTICATION (/api/auth)
+--------------------------
+POST /api/auth/register
+  Body: { name, email, password, role?, company?, phone? }
+  Response: { user, token }
+
+POST /api/auth/login
+  Body: { email, password }
+  Response: { user, token }
+
+GET /api/auth/me
+  Headers: Authorization: Bearer <token>
+  Response: { user }
+
+
+USERS (/api/users)
+------------------
+GET /api/users/profile
+  Auth: Required
+  Response: { user with vehicleProfiles }
+
+PUT /api/users/profile
+  Auth: Required
+  Body: { name?, email? }
+  Response: { user }
+
+POST /api/users/vehicles
+  Auth: Required (user role)
+  Body: { vehicleType, batteryCapacity_kWh, efficiency_kWh_per_km, 
+          batteryPercent, compatibleConnectors }
+  Response: { user with new vehicle added }
+
+PUT /api/users/vehicles/:vehicleId
+  Auth: Required (user role)
+  Body: { batteryPercent?, ... }
+  Response: { user with updated vehicle }
+
+DELETE /api/users/vehicles/:vehicleId
+  Auth: Required (user role)
+  Response: { user with vehicle removed }
+
+
+STATIONS (/api/stations)
+------------------------
+GET /api/stations
+  Query: ?lat=&lng=&radius=&vehicleType=&connectorType=&status=
+  Response: { stations[] }
+
+GET /api/stations/:id
+  Response: { station }
+
+GET /api/stations/nearby
+  Query: ?lat=&lng=&radius=&vehicleType=&connectorTypes=
+  Response: { stations[] with distance }
+
+
+OPERATORS (/api/operators)
+--------------------------
+GET /api/operators/stations
+  Auth: Required (operator role)
+  Response: { stations[] owned by operator }
+
+POST /api/operators/stations
+  Auth: Required (operator role)
+  Body: { name, address, location: { coordinates: [lng, lat] }, 
+          ports[], operatingHours, status }
+  Response: { station }
+
+PUT /api/operators/stations/:id
+  Auth: Required (operator role, must own station)
+  Body: { name?, address?, location?, ports?, operatingHours?, status? }
+  Response: { station }
+
+DELETE /api/operators/stations/:id
+  Auth: Required (operator role, must own station)
+  Response: { message: "Station deleted" }
+
+PATCH /api/operators/stations/:id/occupancy
+  Auth: Required (operator role, must own station)
+  Body: { connectorType, action: "increment" | "decrement" }
+  Response: { station with updated occupancy }
+
+
+RECOMMENDATIONS (/api/recommendations)
+--------------------------------------
+POST /api/recommendations
+  Auth: Optional (uses default weights if not authenticated)
+  Body: {
+    vehicleProfile: { vehicleType, batteryCapacity_kWh, efficiency_kWh_per_km,
+                      batteryPercent, compatibleConnectors },
+    currentLocation: { longitude, latitude },
+    weights?: { distance, availability, waitTime, power, cost }
+  }
+  Response: {
+    recommendations: [{
+      stationId, stationName, address,
+      recommendedPort, powerKW, pricePerKWh,
+      freeSlots, totalSlots,
+      estimatedWaitMinutes,
+      distanceKm,
+      estimatedCost, estimatedChargeTimeMinutes,
+      score,
+      location: { longitude, latitude }
+    }]
+  }
+
+================================================================================
+MOBILE APPLICATION (React Native / Expo)
+================================================================================
+
+Directory: /mobile
+Tech Stack:
+- React Native 0.81.5
+- Expo SDK 54
+- TypeScript 5.9
+- Zustand (state management)
+- React Navigation 7
+- Axios (HTTP client)
+- react-native-webview (WebView-based maps for Expo Go compatibility)
+- expo-location (GPS access)
+- expo-secure-store (secure token storage)
+
+Screens:
+---------
+1. HomeScreen - Dashboard with quick stats and nearby stations
+2. MapScreen - Interactive map showing stations with color-coded availability
+3. RecommendScreen - Smart recommendation with vehicle selection and battery slider
+4. StationDetailsScreen - Full station info, ports, pricing
+5. ProfileScreen - User profile and settings
+6. VehicleProfilesScreen - Manage vehicle profiles
+7. AddVehicleScreen - Add new vehicle with connector selection
+8. LoginScreen / RegisterScreen - Authentication
+
+State Management (Zustand Stores):
+----------------------------------
+1. authStore
+   - user, token, isLoading
+   - login(), logout(), register(), updateProfile()
+
+2. locationStore
+   - currentLocation, customLocation, useCustomLocation
+   - getCurrentLocation(), setCustomLocation()
+   - getEffectiveLocation() - returns custom or GPS location
+
+3. stationStore
+   - nearbyStations, recommendations, selectedStation
+   - fetchNearbyStations(), getRecommendations(), clearRecommendations()
+
+Map Implementation:
+-------------------
+WebViewMap component (/mobile/src/components/WebViewMap.tsx)
+- Uses Leaflet.js rendered in WebView
+- Supports markers with custom colors
+- Tap-to-select location for custom location picker
+- Works in Expo Go without native dependencies
+
+================================================================================
+OPERATOR DASHBOARD (Next.js)
+================================================================================
+
+Directory: /operator-dashboard
+Tech Stack:
+- Next.js 15 (App Router)
+- TypeScript 5
+- Tailwind CSS 4
+- Lucide React (icons)
+- Leaflet (map component)
+
+Pages (App Router):
+-------------------
+/                     - Redirect to login or dashboard
+/login               - Operator login form
+/register            - Operator registration
+/dashboard           - Stats overview (stations, ports, occupancy rate)
+/dashboard/stations  - List all operator's stations with search/filter
+/dashboard/stations/new - Create new station with map picker
+/dashboard/stations/[id] - Station details with real-time occupancy controls
+/dashboard/stations/[id]/edit - Edit station details
+/dashboard/settings  - Profile settings
+
+Key Components:
+---------------
+1. Sidebar - Collapsible navigation
+2. LocationPicker - Interactive Leaflet map for selecting coordinates
+3. AuthContext - React context for authentication state
+
+Features:
+---------
+- Real-time occupancy management (+/- buttons per port)
+- Station status toggle (active/inactive)
+- Search and filter stations
+- Map-based location selection with address search
+- Responsive design
+
+================================================================================
+AUTHENTICATION & AUTHORIZATION
+================================================================================
+
+JWT Token Structure:
+{
+  id: ObjectId,
+  email: String,
+  role: "user" | "operator" | "admin",
+  iat: timestamp,
+  exp: timestamp (7 days)
+}
+
+Middleware:
+-----------
+1. authenticate(req, res, next)
+   - Extracts token from Authorization header
+   - Verifies JWT signature
+   - Attaches user to req.user
+
+2. authorize(...roles)
+   - Checks if req.user.role is in allowed roles
+   - Returns 403 if unauthorized
+
+Role Capabilities:
+------------------
+| Role     | Users | Own Stations | All Stations | Admin Panel |
+|----------|-------|--------------|--------------|-------------|
+| user     | CRUD  | -            | Read         | -           |
+| operator | CRUD  | CRUD         | Read         | -           |
+| admin    | CRUD  | CRUD         | CRUD         | Yes         |
+
+================================================================================
+GEOSPATIAL QUERIES
+================================================================================
+
+MongoDB GeoJSON:
+- Station location stored as GeoJSON Point: { type: "Point", coordinates: [lng, lat] }
+- 2dsphere index on location field
+- $geoNear aggregation for distance calculation
+
+Find Stations Within Radius:
+```javascript
+db.stations.aggregate([
+  {
+    $geoNear: {
+      near: { type: "Point", coordinates: [lng, lat] },
+      distanceField: "distance",
+      maxDistance: radiusKm * 1000, // meters
+      spherical: true,
+      query: {
+        status: "active",
+        "ports.vehicleType": vehicleType,
+        "ports.connectorType": { $in: compatibleConnectors }
+      }
+    }
+  }
+])
+```
+
+================================================================================
+TESTING
+================================================================================
+
+Framework: Jest 30 with ts-jest
+Test Files: /tests/unit/, /tests/integration/
+
+Commands:
+- npm test              - Run all tests
+- npm run test:unit     - Run unit tests only
+- npm run test:integration - Run integration tests
+- npm run test:coverage - Generate coverage report
+
+Test Coverage Areas:
+- Calculations (range, charging time, cost)
+- Scoring functions
+- Recommendation service
+- API endpoints (using supertest)
+- Authentication flow
+
+================================================================================
+CONFIGURATION
+================================================================================
+
+Environment Variables (config.env):
+-----------------------------------
+PORT=3000
+MONGODB_URI=mongodb://localhost:27017/ev_charging
+JWT_SECRET=<secret_key>
+JWT_EXPIRE=7d
+NODE_ENV=development|production
+
+TypeScript Configuration:
+-------------------------
+- Target: ES2022
+- Module: NodeNext
+- Strict mode enabled
+- Declaration files generated
+
+================================================================================
+DATABASE SEEDING
+================================================================================
+
+Script: npm run seed (src/scripts/seed.ts)
+
+Creates sample data:
+- 1 admin user
+- 2 operator users
+- 3 regular users (with vehicle profiles)
+- 10 charging stations across Delhi NCR
+
+Sample Station Locations:
+- Connaught Place, New Delhi
+- Cyber Hub, Gurugram
+- Noida Sector 18
+- IGI Airport Terminal 3
+- etc.
+
+================================================================================
+ERROR HANDLING
+================================================================================
+
+Central Error Handler (src/controllers/errorController.ts):
+- Catches all errors
+- Formats response based on NODE_ENV
+- Development: full stack trace
+- Production: sanitized messages
+
+Custom Error Classes:
+- AppError (base class with statusCode, status, isOperational)
+- ValidationError
+- AuthenticationError
+- NotFoundError
+
+================================================================================
+FILE STRUCTURE
+================================================================================
+
+College_project/
+├── config.env                 # Environment variables
+├── package.json               # Dependencies and scripts
+├── tsconfig.json              # TypeScript configuration
+├── jest.config.js             # Jest configuration
+├── eslint.config.mjs          # ESLint configuration
+│
+├── src/
+│   ├── app.ts                 # Express app configuration
+│   ├── server.ts              # Server entry point
+│   │
+│   ├── controllers/
+│   │   ├── authController.ts
+│   │   ├── errorController.ts
+│   │   ├── operatorController.ts
+│   │   ├── recommendation.controller.ts
+│   │   ├── station.controller.ts
+│   │   └── userController.ts
+│   │
+│   ├── models/
+│   │   ├── Station.ts
+│   │   └── user.ts
+│   │
+│   ├── routes/
+│   │   ├── authRoute.ts
+│   │   ├── operatorRoute.ts
+│   │   ├── recommendation.routes.ts
+│   │   ├── station.routes.ts
+│   │   └── userRoute.ts
+│   │
+│   ├── services/
+│   │   ├── geo.service.ts
+│   │   ├── recommendation.service.ts
+│   │   └── status.service.ts
+│   │
+│   ├── types/
+│   │   └── vehicle.ts
+│   │
+│   ├── utils/
+│   │   ├── calculations.ts
+│   │   └── scoring.ts
+│   │
+│   ├── middleware/
+│   │   ├── auth.middleware.ts
+│   │   └── validation.middleware.ts
+│   │
+│   └── scripts/
+│       └── seed.ts
+│
+├── mobile/                    # React Native mobile app
+│   ├── App.tsx
+│   ├── src/
+│   │   ├── screens/
+│   │   ├── components/
+│   │   ├── store/
+│   │   ├── services/
+│   │   └── types/
+│   └── package.json
+│
+├── operator-dashboard/        # Next.js operator dashboard
+│   ├── src/
+│   │   ├── app/
+│   │   ├── components/
+│   │   ├── contexts/
+│   │   ├── lib/
+│   │   └── types/
+│   └── package.json
+│
+├── tests/
+│   ├── unit/
+│   └── integration/
+│
+└── docs/
+    ├── SYSTEM_DESIGN.md
+    └── API_DOCUMENTATION.md
+
+================================================================================
+DEPENDENCIES
+================================================================================
+
+Backend:
+- express@5.2.1 - Web framework
+- mongoose@9.1.5 - MongoDB ODM
+- bcryptjs@3.0.3 - Password hashing
+- jsonwebtoken@9.0.3 - JWT authentication
+- cors@2.8.6 - CORS middleware
+- dotenv@17.2.3 - Environment variables
+
+Mobile:
+- expo@54.0.33 - React Native framework
+- react-native@0.81.5 - Mobile UI framework
+- zustand@5.0.11 - State management
+- axios@1.13.5 - HTTP client
+- react-native-webview - WebView for maps
+- expo-location - GPS access
+- expo-secure-store - Secure storage
+- @react-navigation/native@7 - Navigation
+
+Operator Dashboard:
+- next@15 - React framework
+- tailwindcss@4 - CSS framework
+- lucide-react - Icon library
+- leaflet - Map library
+
+================================================================================
+RUNNING THE SYSTEM
+================================================================================
+
+1. Start MongoDB:
+   mongod
+
+2. Start Backend API:
+   cd College_project
+   npm run dev
+   # Runs on http://localhost:3000
+
+3. Start Operator Dashboard:
+   cd operator-dashboard
+   npm run dev
+   # Runs on http://localhost:5000
+
+4. Start Mobile App:
+   cd mobile
+   npx expo start
+   # Scan QR code with Expo Go app
+
+5. Seed Database (optional):
+   npm run seed
+
+================================================================================
+END OF DOCUMENTATION
+================================================================================

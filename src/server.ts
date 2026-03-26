@@ -1,3 +1,5 @@
+import { createServer } from "http";
+import { Server as SocketIOServer } from "socket.io";
 import { app } from "./app.js";
 import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
@@ -20,8 +22,30 @@ const startServer = async () => {
     // Connect to MongoDB
     await connectDB();
 
-    const server = app.listen(PORT, () => {
+    // Create HTTP server and attach Socket.io
+    const httpServer = createServer(app);
+    const io = new SocketIOServer(httpServer, {
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+      },
+    });
+
+    // WebSocket connection handling
+    io.on("connection", (socket) => {
+      console.log(`🔌 Client connected via WebSocket: ${socket.id}`);
+
+      socket.on("disconnect", () => {
+        console.log(`🔌 Client disconnected: ${socket.id}`);
+      });
+    });
+
+    // Attach io instance to Express app for controller access
+    app.set("io", io);
+
+    httpServer.listen(PORT, () => {
       console.log(`🚀 Server running on port: ${PORT}`);
+      console.log(`🔌 WebSocket server initialized`);
       console.log(`📍 Health check: http://localhost:${PORT}/health`);
       console.log(`⚡ EV Charging Station Recommendation API Ready!`);
     });
@@ -30,7 +54,7 @@ const startServer = async () => {
     process.on("unhandledRejection", (err: Error) => {
       console.log("UNHANDLED REJECTION! 💥 SHUTTING DOWN...");
       console.log(err.name, err.message);
-      server.close(() => {
+      httpServer.close(() => {
         process.exit(1);
       });
     });
@@ -38,7 +62,8 @@ const startServer = async () => {
     // Graceful shutdown
     process.on("SIGTERM", () => {
       console.log("👋 SIGTERM RECEIVED. Shutting down gracefully...");
-      server.close(() => {
+      io.close();
+      httpServer.close(() => {
         console.log("💤 Process terminated!");
       });
     });

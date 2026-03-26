@@ -61,6 +61,8 @@ export class StationController {
         "_id" | "createdAt" | "updatedAt"
       >;
 
+      console.log(stationData);
+
       // Validate required fields
       if (!stationData.name || !stationData.location || !stationData.ports) {
         res.status(400).json({
@@ -538,6 +540,18 @@ export class StationController {
       );
       const total = port?.total || 0;
 
+      // WebSocket broadcast: notify all connected clients
+      const io = req.app.get("io");
+      if (io) {
+        io.emit("station_occupancy_changed", {
+          stationId: id,
+          connectorType,
+          occupied,
+          total,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
       // Emit occupancy event
       eventBus.publish(
         createEvent(
@@ -647,6 +661,25 @@ export class StationController {
       }
 
       const status = await StatusService.bulkUpdateOccupancy(id, updates);
+
+      // WebSocket broadcast: notify all connected clients for each port update
+      const io = req.app.get("io");
+      if (io && status) {
+        for (const update of updates) {
+          const port = status.ports.find(
+            (p: Port) => p.connectorType === update.connectorType,
+          );
+          if (port) {
+            io.emit("station_occupancy_changed", {
+              stationId: id,
+              connectorType: update.connectorType,
+              occupied: port.occupied,
+              total: port.total,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+        }
+      }
 
       res.status(200).json({
         status: "success",
