@@ -24,8 +24,8 @@ import {
   AlertCircle,
   Clock,
   ImageIcon,
-  Upload,
   X,
+  Upload,
 } from "lucide-react";
 
 const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
@@ -50,6 +50,7 @@ export default function EditStationPage() {
   const params = useParams();
   const router = useRouter();
   const stationId = params.id as string;
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [station, setStation] = useState<Station | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -71,14 +72,12 @@ export default function EditStationPage() {
   const [openTime, setOpenTime] = useState("09:00");
   const [closeTime, setCloseTime] = useState("21:00");
 
-  const [ports, setPorts] = useState<PortFormData[]>([]);
-
-  // Image management state
+  // Images state
   const [images, setImages] = useState<string[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isDeletingImage, setIsDeletingImage] = useState<string | null>(null);
-  const [imageError, setImageError] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [ports, setPorts] = useState<PortFormData[]>([]);
 
   useEffect(() => {
     loadStation();
@@ -106,7 +105,7 @@ export default function EditStationPage() {
           setCloseTime(data.operatingHours.closeTime || "21:00");
         }
       }
-      
+
       // Load images
       setImages(data.images || []);
       
@@ -188,45 +187,27 @@ export default function EditStationPage() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    // Check max images limit
     if (images.length >= 5) {
-      setImageError("Maximum 5 images allowed per station");
-      return;
-    }
-
-    const file = files[0];
-    
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      setImageError("Please select a valid image file");
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setImageError("Image size must be less than 5MB");
+      setError("Maximum 5 images allowed");
       return;
     }
 
     setIsUploadingImage(true);
-    setImageError("");
+    setError("");
 
     try {
-      // Get Cloudinary config
-      const cloudinaryConfig = await api.getCloudinaryConfig();
+      const config = await api.getCloudinaryConfig();
+      const file = files[0];
+      const imageUrl = await api.uploadImageToCloudinary(file, config);
       
-      // Upload to Cloudinary
-      const imageUrl = await api.uploadImageToCloudinary(file, cloudinaryConfig);
-      
-      // Add to station in backend
+      // Add to backend
       const updatedStation = await api.addStationImages(stationId, [imageUrl]);
       setImages(updatedStation.images || []);
     } catch (err) {
       console.error("Failed to upload image:", err);
-      setImageError(err instanceof Error ? err.message : "Failed to upload image");
+      setError("Failed to upload image");
     } finally {
       setIsUploadingImage(false);
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -236,14 +217,12 @@ export default function EditStationPage() {
   // Image delete handler
   const handleDeleteImage = async (imageUrl: string) => {
     setIsDeletingImage(imageUrl);
-    setImageError("");
-
     try {
       const updatedStation = await api.deleteStationImage(stationId, imageUrl);
       setImages(updatedStation.images || []);
     } catch (err) {
       console.error("Failed to delete image:", err);
-      setImageError(err instanceof Error ? err.message : "Failed to delete image");
+      setError("Failed to delete image");
     } finally {
       setIsDeletingImage(null);
     }
@@ -474,19 +453,13 @@ export default function EditStationPage() {
             Station Images
           </h2>
           <p className="mb-4 text-sm text-gray-500">
-            Upload up to 5 images of your station. Images help users identify your station.
+            Upload up to 5 images of your station. These will be shown to users.
           </p>
 
-          {imageError && (
-            <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm text-red-600">
-              {imageError}
-            </div>
-          )}
-
-          {/* Image Grid */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+          {/* Image Gallery */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             {images.map((imageUrl, index) => (
-              <div key={index} className="group relative aspect-square">
+              <div key={index} className="relative group aspect-square">
                 <Image
                   src={imageUrl}
                   alt={`Station image ${index + 1}`}
@@ -497,7 +470,7 @@ export default function EditStationPage() {
                   type="button"
                   onClick={() => handleDeleteImage(imageUrl)}
                   disabled={isDeletingImage === imageUrl}
-                  className="absolute -right-2 -top-2 flex h-7 w-7 items-center justify-center rounded-full bg-red-500 text-white opacity-0 transition-opacity hover:bg-red-600 group-hover:opacity-100 disabled:opacity-50"
+                  className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50"
                 >
                   {isDeletingImage === imageUrl ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -510,36 +483,32 @@ export default function EditStationPage() {
 
             {/* Upload Button */}
             {images.length < 5 && (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isUploadingImage}
-                className="flex aspect-square flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 hover:border-green-400 hover:bg-green-50 disabled:opacity-50"
-              >
+              <label className="aspect-square border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-green-500 hover:bg-green-50 transition-colors">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  disabled={isUploadingImage}
+                />
                 {isUploadingImage ? (
-                  <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                  <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
                 ) : (
                   <>
-                    <Upload className="h-8 w-8 text-gray-400" />
-                    <span className="mt-2 text-xs text-gray-500">Add Image</span>
+                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-500">Add Image</span>
                   </>
                 )}
-              </button>
+              </label>
             )}
           </div>
 
-          {/* Hidden file input */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleImageUpload}
-            className="hidden"
-          />
-
-          <p className="mt-3 text-xs text-gray-400">
-            {images.length}/5 images • Max 5MB per image • JPG, PNG, WebP supported
-          </p>
+          {images.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-4">
+              No images uploaded yet
+            </p>
+          )}
         </div>
 
         {/* Location */}

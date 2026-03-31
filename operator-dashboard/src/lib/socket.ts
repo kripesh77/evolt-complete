@@ -31,6 +31,28 @@ function getSocket(): Socket {
 }
 
 /**
+ * Join a specific station room (for operators editing a station)
+ */
+export function joinStationRoom(stationId: string): void {
+  const socket = getSocket();
+  if (socket.connected) {
+    socket.emit("join-station", stationId);
+    console.log(`[Socket] Operator joined station room: ${stationId}`);
+  }
+}
+
+/**
+ * Leave a specific station room
+ */
+export function leaveStationRoom(stationId: string): void {
+  const socket = getSocket();
+  if (socket.connected) {
+    socket.emit("leave-station", stationId);
+    console.log(`[Socket] Operator left station room: ${stationId}`);
+  }
+}
+
+/**
  * React hook for subscribing to real-time occupancy changes.
  * Calls `onOccupancyChanged` whenever the backend broadcasts
  * a `station_occupancy_changed` event.
@@ -58,6 +80,24 @@ export function useOccupancySocket(
       socket.off("station_occupancy_changed", handler);
     };
   }, []);
+}
+
+/**
+ * React hook for joining/leaving a station room when editing
+ * Use this hook in the station edit/details page
+ */
+export function useStationRoom(stationId: string | null) {
+  useEffect(() => {
+    if (!stationId) return;
+
+    // Join station room on mount
+    joinStationRoom(stationId);
+
+    // Leave station room on unmount
+    return () => {
+      leaveStationRoom(stationId);
+    };
+  }, [stationId]);
 }
 
 export default getSocket;

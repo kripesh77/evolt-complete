@@ -2,6 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { RecommendationService } from "../services/recommendation.service.js";
 import type {
   RecommendationRequest,
+  RouteRecommendationRequest,
   VehicleProfile,
   GeoLocation,
   ScoringWeights,
@@ -153,6 +154,7 @@ export class RecommendationController {
     next: NextFunction,
   ): Promise<void> {
     try {
+      console.log("hi");
       const { longitude, latitude, radius, vehicleType } = req.query;
 
       // Parse and validate coordinates
@@ -281,6 +283,152 @@ export class RecommendationController {
           emergency: true,
           nearestStation: recommendations[0],
           alternatives: recommendations.slice(1),
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get route-aware charging station recommendations
+   * POST /api/v1/recommendations/route
+   *
+   * Request body:
+   * {
+   *   vehicleProfile: { ... },
+   *   currentLocation: { longitude, latitude },
+   *   destination: { longitude, latitude },
+   *   routeOffsetKm: number (how far to deviate from route),
+   *   preferences?: { ... },
+   *   limit?: number
+   * }
+   */
+  static async getRouteRecommendations(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> {
+    try {
+      const {
+        vehicleProfile,
+        currentLocation,
+        destination,
+        routeOffsetKm,
+        preferences,
+        limit,
+      } = req.body as {
+        vehicleProfile: VehicleProfile;
+        currentLocation: GeoLocation;
+        destination: GeoLocation;
+        routeOffsetKm: number;
+        preferences?: {
+          weights?: ScoringWeights;
+        };
+        limit?: number;
+      };
+
+      // Validate vehicle profile
+      if (!vehicleProfile) {
+        res.status(400).json({
+          status: "error",
+          message: "vehicleProfile is required",
+        });
+        return;
+      }
+
+      const profileErrors =
+        RecommendationService.validateVehicleProfile(vehicleProfile);
+      if (profileErrors.length > 0) {
+        res.status(400).json({
+          status: "error",
+          message: "Invalid vehicle profile",
+          errors: profileErrors,
+        });
+        return;
+      }
+
+      // Validate current location
+      if (!currentLocation) {
+        res.status(400).json({
+          status: "error",
+          message: "currentLocation is required",
+        });
+        return;
+      }
+
+      if (
+        !isValidCoordinates(currentLocation.longitude, currentLocation.latitude)
+      ) {
+        res.status(400).json({
+          status: "error",
+          message: "Invalid currentLocation coordinates",
+        });
+        return;
+      }
+
+      // Validate destination
+      if (!destination) {
+        res.status(400).json({
+          status: "error",
+          message: "destination is required",
+        });
+        return;
+      }
+
+      if (!isValidCoordinates(destination.longitude, destination.latitude)) {
+        res.status(400).json({
+          status: "error",
+          message: "Invalid destination coordinates",
+        });
+        return;
+      }
+
+      // Validate route offset
+      const offset = routeOffsetKm || 5; // Default 5km offset
+      if (offset <= 0 || offset > 50) {
+        res.status(400).json({
+          status: "error",
+          message: "routeOffsetKm must be between 0 and 50 km",
+        });
+        return;
+      }
+
+      const request: RouteRecommendationRequest = {
+        vehicleProfile,
+        currentLocation,
+        destination,
+        routeOffsetKm: offset,
+      };
+
+      const result = await RecommendationService.getRouteAwareRecommendations(
+        request,
+        preferences?.weights,
+        limit || 10,
+      );
+
+      res.status(200).json({
+        status: "success",
+        results: result.recommendations.length,
+        data: {
+          recommendations: result.recommendations,
+          routeInfo: {
+            totalDistanceKm:
+              Math.round(result.routeInfo.totalDistanceKm * 100) / 100,
+            totalDurationMinutes: Math.round(
+              result.routeInfo.totalDurationMinutes,
+            ),
+            routeOffsetKm: offset,
+            stationsFound: result.recommendations.length,
+            polyline: result.routeInfo.polyline, // For drawing route on map
+          },
+          searchArea: result.searchArea, // GeoJSON polygon for highlighting search area
+          meta: {
+            vehicleType: vehicleProfile.vehicleType,
+            batteryPercent: vehicleProfile.batteryPercent,
+            from: currentLocation,
+            to: destination,
+          },
         },
       });
     } catch (error) {

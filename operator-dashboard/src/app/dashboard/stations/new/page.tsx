@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import api from "@/lib/api";
-import { ConnectorType, VehicleType, CONNECTOR_OPTIONS } from "@/types";
-import { ArrowLeft, Plus, Trash2, Zap, Loader2, MapPin } from "lucide-react";
+import { ConnectorType, VehicleType, CONNECTOR_OPTIONS, OperatingHours } from "@/types";
+import { ArrowLeft, Plus, Trash2, Zap, Loader2, MapPin, Upload, X, Image as ImageIcon } from "lucide-react";
 import Link from "next/link";
 
 // Dynamic import to avoid SSR issues with Leaflet
@@ -30,16 +30,25 @@ export default function NewStationPage() {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [cloudinaryConfig, setCloudinaryConfig] = useState<{ cloudName: string; apiKey: string } | null>(null);
+  const [uploadingImages, setUploadingImages] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     address: "",
-    operatingHours: "24/7",
     location: {
       lat: 28.6139,
       lng: 77.209,
     },
   });
+
+  const [operatingHoursType, setOperatingHoursType] = useState<"24/7" | "custom">("24/7");
+  const [customHours, setCustomHours] = useState({
+    openTime: "09:00",
+    closeTime: "21:00",
+  });
+
+  const [images, setImages] = useState<string[]>([]);
 
   const [ports, setPorts] = useState<PortFormData[]>([
     {
@@ -50,6 +59,19 @@ export default function NewStationPage() {
       pricePerKWh: 15,
     },
   ]);
+
+  // Fetch Cloudinary config on mount
+  useEffect(() => {
+    const fetchConfig = async () => {
+      try {
+        const config = await api.getCloudinaryConfig();
+        setCloudinaryConfig(config);
+      } catch (err) {
+        console.error("Failed to fetch Cloudinary config:", err);
+      }
+    };
+    fetchConfig();
+  }, []);
 
   const handleLocationChange = (location: {
     lat: number;
@@ -106,6 +128,35 @@ export default function NewStationPage() {
     }
   };
 
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || !cloudinaryConfig) return;
+
+    const files = Array.from(e.target.files);
+    if (images.length + files.length > 5) {
+      setError("Maximum 5 images allowed");
+      return;
+    }
+
+    setUploadingImages(true);
+    setError("");
+
+    try {
+      const uploadPromises = files.map((file) =>
+        api.uploadImageToCloudinary(file, cloudinaryConfig)
+      );
+      const urls = await Promise.all(uploadPromises);
+      setImages([...images, ...urls]);
+    } catch (err) {
+      setError("Failed to upload images. Please try again.");
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages(images.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -125,13 +176,30 @@ export default function NewStationPage() {
       return;
     }
 
+    // Validate custom hours
+    if (operatingHoursType === "custom") {
+      if (!customHours.openTime || !customHours.closeTime) {
+        setError("Please specify both opening and closing times");
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
+      const operatingHours: OperatingHours =
+        operatingHoursType === "24/7"
+          ? { type: "24/7" }
+          : {
+              type: "custom",
+              openTime: customHours.openTime,
+              closeTime: customHours.closeTime,
+            };
+
       await api.createStation({
         name: formData.name,
         address: formData.address,
-        operatingHours: formData.operatingHours,
+        operatingHours,
         location: {
           type: "Point",
           coordinates: [formData.location.lng, formData.location.lat],
@@ -143,6 +211,7 @@ export default function NewStationPage() {
           total: p.total,
           pricePerKWh: p.pricePerKWh,
         })),
+        images: images.length > 0 ? images : undefined,
       });
 
       router.push("/dashboard/stations");
@@ -198,24 +267,137 @@ export default function NewStationPage() {
                 }
                 required
                 className="w-full rounded-lg border border-gray-300 text-gray-800 px-4 py-2 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                placeholder="e.g., EV Hub Connaught Place"
+                placeholder="e.g., EV Hub Downtown"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Operating Hours */}
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900">
+            Operating Hours
+          </h2>
+
+          <div className="space-y-4">
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="operatingHoursType"
+                  value="24/7"
+                  checked={operatingHoursType === "24/7"}
+                  onChange={() => setOperatingHoursType("24/7")}
+                  className="h-4 w-4 text-green-600"
+                />
+                <span className="text-gray-700">24/7 (Always Open)</span>
+              </label>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="operatingHoursType"
+                  value="custom"
+                  checked={operatingHoursType === "custom"}
+                  onChange={() => setOperatingHoursType("custom")}
+                  className="h-4 w-4 text-green-600"
+                />
+                <span className="text-gray-700">Custom Hours</span>
+              </label>
             </div>
 
+            {operatingHoursType === "custom" && (
+              <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Opening Time *
+                  </label>
+                  <input
+                    type="time"
+                    value={customHours.openTime}
+                    onChange={(e) =>
+                      setCustomHours({ ...customHours, openTime: e.target.value })
+                    }
+                    required={operatingHoursType === "custom"}
+                    className="w-full rounded-lg border border-gray-300 text-gray-800 px-4 py-2 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">
+                    Closing Time *
+                  </label>
+                  <input
+                    type="time"
+                    value={customHours.closeTime}
+                    onChange={(e) =>
+                      setCustomHours({ ...customHours, closeTime: e.target.value })
+                    }
+                    required={operatingHoursType === "custom"}
+                    className="w-full rounded-lg border border-gray-300 text-gray-800 px-4 py-2 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+                  />
+                </div>
+
+                <p className="col-span-2 text-sm text-gray-600">
+                  {customHours.openTime < customHours.closeTime
+                    ? `Station operates from ${customHours.openTime} to ${customHours.closeTime} daily`
+                    : `Station operates from ${customHours.openTime} to ${customHours.closeTime} (crosses midnight)`}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Images */}
+        <div className="rounded-xl bg-white p-6 shadow-sm">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+            <ImageIcon className="h-5 w-5 text-green-600" />
+            Station Images (Optional)
+          </h2>
+
+          <div className="space-y-4">
             <div>
-              <label className="mb-1 block text-sm font-medium text-gray-700">
-                Operating Hours
+              <label className="flex items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                <div className="flex flex-col items-center">
+                  <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                  <span className="text-sm text-gray-600">
+                    {uploadingImages ? "Uploading..." : "Click to upload images"}
+                  </span>
+                  <span className="text-xs text-gray-500 mt-1">
+                    Maximum 5 images, up to 5MB each
+                  </span>
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  disabled={uploadingImages || images.length >= 5}
+                  className="hidden"
+                />
               </label>
-              <input
-                type="text"
-                value={formData.operatingHours}
-                onChange={(e) =>
-                  setFormData({ ...formData, operatingHours: e.target.value })
-                }
-                className="w-full rounded-lg border border-gray-300 text-gray-800 px-4 py-2 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
-                placeholder="e.g., 24/7 or 6:00 AM - 10:00 PM"
-              />
             </div>
+
+            {images.length > 0 && (
+              <div className="grid grid-cols-3 gap-4">
+                {images.map((url, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={url}
+                      alt={`Station image ${index + 1}`}
+                      className="w-full h-32 object-cover rounded-lg"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -370,13 +552,18 @@ export default function NewStationPage() {
           </Link>
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || uploadingImages}
             className="flex items-center gap-2 rounded-lg bg-green-600 px-6 py-2 font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="h-5 w-5 animate-spin" />
                 Creating...
+              </>
+            ) : uploadingImages ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Uploading Images...
               </>
             ) : (
               <>

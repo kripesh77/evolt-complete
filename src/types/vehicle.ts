@@ -7,6 +7,23 @@ export type ConnectorType = "AC_SLOW" | "Type2" | "CCS" | "CHAdeMO";
 // Station Status
 export type StationStatusType = "active" | "inactive";
 
+// Operating Hours Type
+export interface OperatingHours {
+  type: "24/7" | "custom";
+  // For custom hours
+  openTime?: string; // Format: "HH:mm" (e.g., "06:00")
+  closeTime?: string; // Format: "HH:mm" (e.g., "22:00")
+  // Optional: different hours for different days (future enhancement)
+  weekdayHours?: {
+    openTime: string;
+    closeTime: string;
+  };
+  weekendHours?: {
+    openTime: string;
+    closeTime: string;
+  };
+}
+
 // User Roles
 export type UserRole = "user" | "operator" | "admin";
 
@@ -32,6 +49,54 @@ export interface RecommendationRequest {
   currentLocation: GeoLocation;
 }
 
+// Route-aware Recommendation Request
+export interface RouteRecommendationRequest {
+  vehicleProfile: VehicleProfile;
+  currentLocation: GeoLocation;
+  destination: GeoLocation;
+  routeOffsetKm: number; // How far user is willing to deviate from route
+}
+
+// Route information from OpenRouteService
+export interface RouteInfo {
+  polyline: [number, number][]; // Array of [longitude, latitude] coordinates
+  totalDistanceKm: number;
+  totalDurationMinutes: number;
+  boundingBox: {
+    minLon: number;
+    minLat: number;
+    maxLon: number;
+    maxLat: number;
+  };
+}
+
+// Route-aware response with visualization data
+export interface RouteAwareResponse {
+  recommendations: RecommendedStation[];
+  routeInfo: RouteInfo;
+  searchArea: GeoPolygon; // Polygon buffer for visualization
+}
+
+// Polygon for geospatial queries (GeoJSON format)
+export interface GeoPolygon {
+  type: "Polygon";
+  coordinates: [number, number][][]; // Array of linear rings, each ring is array of [lon, lat]
+}
+
+// Distance matrix result from OpenRouteService
+export interface DistanceMatrixResult {
+  distances: number[][]; // distances[source][destination] in meters
+  durations: number[][]; // durations[source][destination] in seconds
+}
+
+// Station with real driving distance
+export interface StationWithRealDistance {
+  stationId: string;
+  straightLineDistanceKm: number;
+  realDrivingDistanceKm: number;
+  realDrivingDurationMinutes: number;
+}
+
 // Port Information (with occupancy tracking)
 export interface Port {
   connectorType: ConnectorType;
@@ -54,8 +119,9 @@ export interface IStation {
   address: string;
   ports: Port[];
   lastStatusUpdate?: Date;
-  operatingHours: string;
+  operatingHours: OperatingHours;
   status: StationStatusType;
+  images?: string[]; // Array of Cloudinary image URLs
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -72,6 +138,7 @@ export interface RecommendedStation {
   totalSlots: number;
   estimatedWaitMinutes: number;
   distanceKm: number;
+  drivingDurationMinutes?: number; // Real driving time (for route-aware recommendations)
   estimatedCost: number;
   estimatedChargeTimeMinutes: number;
   score: number;
@@ -79,6 +146,8 @@ export interface RecommendedStation {
     longitude: number;
     latitude: number;
   };
+  operatingHours?: OperatingHours;
+  images?: string[];
 }
 
 // Scoring weights

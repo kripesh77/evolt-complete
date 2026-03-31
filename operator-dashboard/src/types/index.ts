@@ -20,6 +20,15 @@ export interface Port {
   pricePerKWh: number;
 }
 
+// Operating Hours
+export interface OperatingHours {
+  type: "24/7" | "custom";
+  openTime?: string; // HH:mm format
+  closeTime?: string; // HH:mm format
+  weekdayHours?: OperatingHours;
+  weekendHours?: OperatingHours;
+}
+
 // Station
 export interface Station {
   _id: string;
@@ -31,7 +40,8 @@ export interface Station {
   };
   address: string;
   ports: Port[];
-  operatingHours: string;
+  operatingHours: OperatingHours;
+  images?: string[]; // Cloudinary URLs
   status: StationStatusType;
   lastStatusUpdate?: string;
   createdAt?: string;
@@ -74,7 +84,8 @@ export interface CreateStationDTO {
     coordinates: [number, number];
   };
   ports: Omit<Port, "occupied">[];
-  operatingHours: string;
+  operatingHours: OperatingHours;
+  images?: string[];
   status?: StationStatusType;
 }
 
@@ -87,7 +98,8 @@ export interface UpdateStationDTO {
     coordinates: [number, number];
   };
   ports?: Port[];
-  operatingHours?: string;
+  operatingHours?: OperatingHours;
+  images?: string[];
   status?: StationStatusType;
 }
 

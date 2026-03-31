@@ -5,6 +5,8 @@ A smart EV charging station recommendation backend system built with Node.js, Ex
 ## 🚀 Features
 
 - **Smart Recommendations**: AI-powered station recommendations based on multiple criteria
+- **Route-Aware Search**: Direction-aware recommendations along your travel route (e.g., KTM → Pokhara)
+- **Real Driving Distances**: Uses OpenRouteService for actual road distances, not straight-line
 - **Vehicle Support**: Separate handling for bikes (two-wheelers) and cars (four-wheelers)
 - **Per-Port Pricing**: Realistic pricing model per charging port
 - **Real-time Availability**: Track occupancy per connector type
@@ -38,6 +40,7 @@ PUT    /api/v1/stations/:id/occupancy - Bulk update occupancy
 ```
 GET  /api/v1/recommendations/nearby    - Get nearby stations (quick overview)
 POST /api/v1/recommendations           - Get smart recommendations
+POST /api/v1/recommendations/route     - Route-aware recommendations (direction-aware)
 POST /api/v1/recommendations/emergency - Emergency recommendation (low battery)
 ```
 
@@ -95,6 +98,40 @@ POST /api/v1/recommendations/emergency - Emergency recommendation (low battery)
 }
 ```
 
+## 📤 Route-Aware Recommendation (New!)
+
+**Request** `POST /api/v1/recommendations/route`:
+
+```json
+{
+  "vehicleProfile": { ... },
+  "currentLocation": { "longitude": 85.324, "latitude": 27.7172 },
+  "destination": { "longitude": 83.9856, "latitude": 28.2096 },
+  "routeOffsetKm": 5,
+  "limit": 10
+}
+```
+
+**Response** includes real driving distances and route info:
+
+```json
+{
+  "recommendations": [
+    {
+      "stationName": "Highway Charging Point",
+      "distanceKm": 45.3,
+      "drivingDurationMinutes": 52,
+      "score": 0.85
+    }
+  ],
+  "routeInfo": {
+    "totalDistanceKm": 200.5,
+    "totalDurationMinutes": 240,
+    "stationsFound": 5
+  }
+}
+```
+
 ## 🛠️ Setup
 
 ### Prerequisites
@@ -118,6 +155,7 @@ npm install
 PORT=3000
 MONGODB_URI=mongodb://localhost:27017/ev_charging_station
 NODE_ENV=development
+ORS_API_KEY=your-openrouteservice-api-key  # Required for route-aware recommendations
 ```
 
 ### Running the Server

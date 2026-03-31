@@ -3,7 +3,9 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import api from "@/lib/api";
+import { formatOperatingHours } from "@/lib/utils";
 import { Station, Port } from "@/types";
 import {
   ArrowLeft,
@@ -18,8 +20,11 @@ import {
   XCircle,
   Loader2,
   AlertCircle,
+  ImageIcon,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
-import { useOccupancySocket, OccupancyChangedPayload } from "@/lib/socket";
+import { useOccupancySocket, useStationRoom, OccupancyChangedPayload } from "@/lib/socket";
 
 export default function StationDetailsPage() {
   const params = useParams();
@@ -31,6 +36,7 @@ export default function StationDetailsPage() {
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [deleteModal, setDeleteModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // Real-time occupancy updates
   const handleOccupancyChanged = useCallback(
@@ -52,6 +58,9 @@ export default function StationDetailsPage() {
   );
 
   useOccupancySocket(handleOccupancyChanged);
+  
+  // Join station room when operator enters edit page
+  useStationRoom(stationId);
 
   useEffect(() => {
     loadStation();
@@ -241,10 +250,90 @@ export default function StationDetailsPage() {
           <div className="mt-1 flex items-center gap-2">
             <Clock className="h-5 w-5 text-gray-400" />
             <span className="text-lg font-semibold">
-              {station.operatingHours}
+              {formatOperatingHours(station.operatingHours)}
             </span>
           </div>
         </div>
+      </div>
+
+      {/* Station Images */}
+      <div className="rounded-xl bg-white p-6 shadow-sm">
+        <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-gray-900">
+          <ImageIcon className="h-5 w-5 text-green-600" />
+          Station Images
+        </h2>
+
+        {station.images && station.images.length > 0 ? (
+          <div className="space-y-4">
+            {/* Main Image */}
+            <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-gray-100">
+              <Image
+                src={station.images[currentImageIndex]}
+                alt={`${station.name} - Image ${currentImageIndex + 1}`}
+                fill
+                className="object-cover"
+              />
+              
+              {/* Navigation arrows for multiple images */}
+              {station.images.length > 1 && (
+                <>
+                  <button
+                    onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? station.images!.length - 1 : prev - 1))}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <button
+                    onClick={() => setCurrentImageIndex((prev) => (prev === station.images!.length - 1 ? 0 : prev + 1))}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </button>
+                  
+                  {/* Image counter */}
+                  <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
+                    {currentImageIndex + 1} / {station.images.length}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Thumbnail strip for multiple images */}
+            {station.images.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {station.images.map((imageUrl, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentImageIndex(index)}
+                    className={`relative h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg ${
+                      index === currentImageIndex
+                        ? "ring-2 ring-green-500"
+                        : "ring-1 ring-gray-200 hover:ring-gray-300"
+                    }`}
+                  >
+                    <Image
+                      src={imageUrl}
+                      alt={`Thumbnail ${index + 1}`}
+                      fill
+                      className="object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 py-12">
+            <ImageIcon className="h-12 w-12 text-gray-300" />
+            <p className="mt-2 text-sm text-gray-500">No images uploaded</p>
+            <Link
+              href={`/dashboard/stations/${stationId}/edit`}
+              className="mt-3 text-sm font-medium text-green-600 hover:text-green-700"
+            >
+              Add images in edit mode
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Ports - Occupancy Management */}

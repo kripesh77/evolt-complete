@@ -1,7 +1,10 @@
+import dotenv from "dotenv";
+// Load environment variables
+dotenv.config({ path: "./config.env" });
+
 import { createServer } from "http";
 import { Server as SocketIOServer } from "socket.io";
 import { app } from "./app.js";
-import dotenv from "dotenv";
 import { connectDB } from "./config/db.js";
 
 // Handle uncaught exceptions
@@ -10,9 +13,6 @@ process.on("uncaughtException", (err) => {
   console.log(err.name, err.message);
   process.exit(1);
 });
-
-// Load environment variables
-dotenv.config({ path: "./config.env" });
 
 const PORT = process.env.PORT || 3000;
 
@@ -34,6 +34,40 @@ const startServer = async () => {
     // WebSocket connection handling
     io.on("connection", (socket) => {
       console.log(`🔌 Client connected via WebSocket: ${socket.id}`);
+
+      // Join a station room (for real-time occupancy updates)
+      socket.on("join-station", (stationId: string) => {
+        if (stationId && typeof stationId === "string") {
+          socket.join(`station:${stationId}`);
+          console.log(`📡 Socket ${socket.id} joined station room: ${stationId}`);
+          
+          // Acknowledge the join
+          socket.emit("station-joined", { stationId, success: true });
+        }
+      });
+
+      // Leave a station room
+      socket.on("leave-station", (stationId: string) => {
+        if (stationId && typeof stationId === "string") {
+          socket.leave(`station:${stationId}`);
+          console.log(`📡 Socket ${socket.id} left station room: ${stationId}`);
+          
+          // Acknowledge the leave
+          socket.emit("station-left", { stationId, success: true });
+        }
+      });
+
+      // Leave all station rooms (useful when user cancels navigation)
+      socket.on("leave-all-stations", () => {
+        const rooms = Array.from(socket.rooms);
+        rooms.forEach((room) => {
+          if (room.startsWith("station:")) {
+            socket.leave(room);
+            console.log(`📡 Socket ${socket.id} left room: ${room}`);
+          }
+        });
+        socket.emit("all-stations-left", { success: true });
+      });
 
       socket.on("disconnect", () => {
         console.log(`🔌 Client disconnected: ${socket.id}`);

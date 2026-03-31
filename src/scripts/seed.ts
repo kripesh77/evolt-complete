@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Station from "../models/Station.js";
 import User from "../models/user.js";
-import type { IStation, Port } from "../types/vehicle.js";
+import type { IStation, Port, OperatingHours } from "../types/vehicle.js";
 
 dotenv.config({ path: "./config.env" });
 
@@ -14,6 +14,26 @@ type SeedStation = Omit<
 > & {
   ports: SeedPort[];
 };
+
+// Helper function to convert old string format to new OperatingHours format
+function parseOperatingHours(hoursString: string): OperatingHours {
+  if (hoursString === "24/7") {
+    return { type: "24/7" };
+  }
+  
+  // Parse custom hours like "06:00 - 23:00"
+  const match = hoursString.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+  if (match) {
+    return {
+      type: "custom",
+      openTime: match[1],
+      closeTime: match[2],
+    };
+  }
+  
+  // Default to 24/7 if parsing fails
+  return { type: "24/7" };
+}
 
 // Sample station data for different cities
 const sampleStations: SeedStation[] = [
@@ -48,7 +68,7 @@ const sampleStations: SeedStation[] = [
         pricePerKWh: 8,
       },
     ],
-    operatingHours: "24/7",
+    operatingHours: { type: "24/7" },
     status: "active",
   },
   {
@@ -81,7 +101,7 @@ const sampleStations: SeedStation[] = [
         pricePerKWh: 10,
       },
     ],
-    operatingHours: "06:00 - 23:00",
+    operatingHours: { type: "custom", openTime: "06:00", closeTime: "23:00" },
     status: "active",
   },
   {
@@ -107,7 +127,7 @@ const sampleStations: SeedStation[] = [
         pricePerKWh: 6,
       },
     ],
-    operatingHours: "24/7",
+    operatingHours: { type: "24/7" },
     status: "active",
   },
   {
@@ -133,7 +153,7 @@ const sampleStations: SeedStation[] = [
         pricePerKWh: 7,
       },
     ],
-    operatingHours: "08:00 - 22:00",
+    operatingHours: { type: "custom", openTime: "08:00", closeTime: "22:00" },
     status: "active",
   },
   {
@@ -152,7 +172,7 @@ const sampleStations: SeedStation[] = [
         pricePerKWh: 5,
       },
     ],
-    operatingHours: "06:00 - 23:00",
+    operatingHours: { type: "custom", openTime: "06:00", closeTime: "23:00" },
     status: "active",
   },
   // Mumbai stations
@@ -186,7 +206,7 @@ const sampleStations: SeedStation[] = [
         pricePerKWh: 10,
       },
     ],
-    operatingHours: "24/7",
+    operatingHours: { type: "24/7" },
     status: "active",
   },
   {
@@ -212,7 +232,7 @@ const sampleStations: SeedStation[] = [
         pricePerKWh: 6,
       },
     ],
-    operatingHours: "24/7",
+    operatingHours: { type: "24/7" },
     status: "active",
   },
   // Bangalore stations
@@ -246,7 +266,7 @@ const sampleStations: SeedStation[] = [
         pricePerKWh: 5,
       },
     ],
-    operatingHours: "24/7",
+    operatingHours: { type: "24/7" },
     status: "active",
   },
   {
@@ -272,7 +292,7 @@ const sampleStations: SeedStation[] = [
         pricePerKWh: 13,
       },
     ],
-    operatingHours: "08:00 - 22:00",
+    operatingHours: { type: "custom", openTime: "08:00", closeTime: "22:00" },
     status: "active",
   },
   // Inactive station for testing
@@ -292,7 +312,7 @@ const sampleStations: SeedStation[] = [
         pricePerKWh: 12,
       },
     ],
-    operatingHours: "24/7",
+    operatingHours: { type: "24/7" },
     status: "inactive",
   },
 ];

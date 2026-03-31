@@ -268,6 +268,94 @@ class ApiService {
       await this.handleResponse<ApiResponse<{ stations: Station[] }>>(response);
     return data.data.stations;
   }
+
+  // Cloudinary - Get config
+  async getCloudinaryConfig(): Promise<{
+    cloudName: string;
+    apiKey: string;
+  }> {
+    const response = await fetch(`${API_BASE_URL}/stations/cloudinary-config`);
+    const data = await this.handleResponse<
+      ApiResponse<{ cloudName: string; apiKey: string }>
+    >(response);
+    return data.data;
+  }
+
+  // Cloudinary - Upload image directly to Cloudinary
+  async uploadImageToCloudinary(
+    file: File,
+    cloudinaryConfig: { cloudName: string; apiKey: string },
+  ): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "ev_stations"); // You need to create this preset in Cloudinary
+    formData.append("folder", "ev-stations");
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+    if (!response.ok) {
+      throw new Error("Failed to upload image to Cloudinary");
+    }
+
+    const data = await response.json();
+    return data.secure_url;
+  }
+
+  // Station Images - Add images (after uploading to Cloudinary)
+  async addStationImages(
+    stationId: string,
+    imageUrls: string[],
+  ): Promise<Station> {
+    const response = await fetch(
+      `${API_BASE_URL}/stations/${stationId}/images`,
+      {
+        method: "POST",
+        headers: this.getHeaders(),
+        body: JSON.stringify({ imageUrls }),
+      },
+    );
+    const data =
+      await this.handleResponse<ApiResponse<{ station: Station }>>(response);
+    return data.data.station;
+  }
+
+  // Station Images - Delete image
+  async deleteStationImage(
+    stationId: string,
+    imageUrl: string,
+  ): Promise<Station> {
+    const response = await fetch(
+      `${API_BASE_URL}/stations/${stationId}/images`,
+      {
+        method: "DELETE",
+        headers: this.getHeaders(),
+        body: JSON.stringify({ imageUrl }),
+      },
+    );
+    const data =
+      await this.handleResponse<ApiResponse<{ station: Station }>>(response);
+    return data.data.station;
+  }
+
+  // Station Images - Delete all images
+  async deleteAllStationImages(stationId: string): Promise<Station> {
+    const response = await fetch(
+      `${API_BASE_URL}/stations/${stationId}/images/all`,
+      {
+        method: "DELETE",
+        headers: this.getHeaders(),
+      },
+    );
+    const data =
+      await this.handleResponse<ApiResponse<{ station: Station }>>(response);
+    return data.data.station;
+  }
 }
 
 // Export singleton instance

@@ -642,7 +642,7 @@ Find charging stations near a location. **No authentication required.**
 
 ---
 
-### `POST /api/v1/recommendations`
+### `GET /api/v1/recommendations`
 
 Get smart charging station recommendations based on vehicle profile and location.
 
@@ -720,7 +720,7 @@ Get smart charging station recommendations based on vehicle profile and location
 
 ---
 
-### `POST /api/v1/recommendations/emergency`
+### `GET /api/v1/recommendations/emergency`
 
 Emergency recommendation for low-battery situations. Prioritizes nearest available station.
 
@@ -753,6 +753,105 @@ Emergency recommendation for low-battery situations. Prioritizes nearest availab
   "message": "No charging stations found within reachable distance. Consider calling roadside assistance."
 }
 ```
+
+---
+
+### `GET /api/v1/recommendations/route`
+
+Get **direction-aware** charging station recommendations along a route. Uses real driving distances from OpenRouteService.
+
+**Auth Required:** No
+
+**Request Body:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `vehicleProfile` | object | Yes | Same as recommendations endpoint |
+| `currentLocation` | object | Yes | `{ longitude, latitude }` - Starting point |
+| `destination` | object | Yes | `{ longitude, latitude }` - Destination |
+| `routeOffsetKm` | number | No | Max deviation from route in km (default 5, max 50) |
+| `preferences` | object | No | Scoring preferences |
+| `limit` | number | No | Max results (default 10) |
+
+**Example Request:**
+
+```json
+{
+  "vehicleProfile": {
+    "vehicleType": "car",
+    "batteryCapacity_kWh": 60,
+    "efficiency_kWh_per_km": 0.2,
+    "batteryPercent": 30,
+    "compatibleConnectors": ["CCS", "Type2"]
+  },
+  "currentLocation": {
+    "longitude": 85.324,
+    "latitude": 27.7172
+  },
+  "destination": {
+    "longitude": 83.9856,
+    "latitude": 28.2096
+  },
+  "routeOffsetKm": 5,
+  "limit": 10
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "status": "success",
+  "results": 5,
+  "data": {
+    "recommendations": [
+      {
+        "stationId": "665a...",
+        "stationName": "Highway Charging Point",
+        "address": "Prithvi Highway, Mugling",
+        "recommendedPort": "CCS",
+        "powerKW": 50,
+        "pricePerKWh": 15,
+        "freeSlots": 2,
+        "totalSlots": 4,
+        "distanceKm": 45.3,
+        "drivingDurationMinutes": 52,
+        "estimatedWaitMinutes": 0,
+        "estimatedCost": 630,
+        "estimatedChargeTimeMinutes": 42,
+        "score": 0.85,
+        "location": {
+          "longitude": 84.5678,
+          "latitude": 27.9123
+        }
+      }
+    ],
+    "routeInfo": {
+      "totalDistanceKm": 200.5,
+      "totalDurationMinutes": 240,
+      "routeOffsetKm": 5,
+      "stationsFound": 5
+    },
+    "meta": {
+      "vehicleType": "car",
+      "batteryPercent": 30,
+      "from": { "longitude": 85.324, "latitude": 27.7172 },
+      "to": { "longitude": 83.9856, "latitude": 28.2096 }
+    }
+  }
+}
+```
+
+**Key Features:**
+
+- Only shows stations **along your route** (within the offset corridor)
+- Uses **real driving distances** (not straight-line) from OpenRouteService Matrix API
+- Single API call for all distance calculations (efficient)
+- Scores stations using actual road distances for accurate MCDS ranking
+
+**Error Responses:**
+
+- `400` - Invalid coordinates, invalid route offset, or invalid vehicle profile
+- `500` - OpenRouteService API error
 
 ---
 

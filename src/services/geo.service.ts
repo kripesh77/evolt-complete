@@ -1,5 +1,10 @@
 import Station, { type StationDocument } from "../models/Station.js";
-import type { VehicleType, ConnectorType, Port } from "../types/vehicle.js";
+import type {
+  VehicleType,
+  ConnectorType,
+  Port,
+  GeoPolygon,
+} from "../types/vehicle.js";
 
 /**
  * GeoService - Handles geospatial queries for stations
@@ -37,6 +42,104 @@ export class GeoService {
     }
 
     return Station.find(query).exec();
+  }
+
+  /**
+   * Find stations within a polygon (for route-aware recommendations)
+   * @param polygon - GeoJSON polygon defining the search area
+   * @param vehicleType - Vehicle type (bike/car)
+   * @param compatibleConnectors - List of compatible connector types
+   */
+  static async findStationsInPolygon(
+    polygon: GeoPolygon,
+    vehicleType: VehicleType,
+    compatibleConnectors: ConnectorType[],
+  ): Promise<StationDocument[]> {
+    const query = {
+      status: "active" as const,
+      location: {
+        $geoWithin: {
+          $geometry: polygon,
+        },
+      },
+      ports: {
+        $elemMatch: {
+          vehicleType: vehicleType,
+          connectorType: { $in: compatibleConnectors },
+        },
+      },
+    };
+
+    return Station.find(query).exec();
+  }
+
+  /**
+   * Find stations within a polygon with straight-line distance calculation
+   * Uses aggregation to include distance from a reference point
+   */
+  static async findStationsInPolygonWithDistance(
+    polygon: GeoPolygon,
+    referencePoint: { longitude: number; latitude: number },
+    vehicleType: VehicleType,
+    compatibleConnectors: ConnectorType[],
+  ): Promise<
+    Array<{
+      station: StationDocument;
+      straightLineDistanceKm: number;
+    }>
+  > {
+    // First, find stations within polygon
+    const stations = await this.findStationsInPolygon(
+      polygon,
+      vehicleType,
+      compatibleConnectors,
+    );
+
+    // Calculate straight-line distance for each station using Haversine
+    return stations.map((station) => {
+      const stationLon = station.location.coordinates[0];
+      const stationLat = station.location.coordinates[1];
+
+      const straightLineDistanceKm = this.haversineDistance(
+        referencePoint.latitude,
+        referencePoint.longitude,
+        stationLat,
+        stationLon,
+      );
+
+      return {
+        station,
+        straightLineDistanceKm: Math.round(straightLineDistanceKm * 100) / 100,
+      };
+    });
+  }
+
+  /**
+   * Calculate Haversine distance between two points
+   */
+  private static haversineDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number,
+  ): number {
+    const R = 6371; // Earth's radius in km
+    const dLat = this.toRadians(lat2 - lat1);
+    const dLon = this.toRadians(lon2 - lon1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRadians(lat1)) *
+        Math.cos(this.toRadians(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  private static toRadians(degrees: number): number {
+    return degrees * (Math.PI / 180);
   }
 
   /**

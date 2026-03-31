@@ -4,6 +4,7 @@ import type {
   Port,
   VehicleType,
   ConnectorType,
+  OperatingHours,
 } from "../types/vehicle.js";
 
 // Port Schema (subdocument with occupancy tracking)
@@ -111,9 +112,49 @@ const StationSchema = new Schema<StationDocument>(
       },
     },
     operatingHours: {
-      type: String,
-      default: "24/7",
-      trim: true,
+      type: {
+        type: String,
+        enum: ["24/7", "custom"],
+        default: "24/7",
+      },
+      openTime: {
+        type: String,
+        validate: {
+          validator: function (v: string) {
+            if (!v) return true; // Allow null/undefined
+            return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
+          },
+          message: "Open time must be in HH:mm format (e.g., 06:00)",
+        },
+      },
+      closeTime: {
+        type: String,
+        validate: {
+          validator: function (v: string) {
+            if (!v) return true; // Allow null/undefined
+            return /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(v);
+          },
+          message: "Close time must be in HH:mm format (e.g., 22:00)",
+        },
+      },
+      weekdayHours: {
+        openTime: String,
+        closeTime: String,
+      },
+      weekendHours: {
+        openTime: String,
+        closeTime: String,
+      },
+    },
+    images: {
+      type: [String],
+      default: [],
+      validate: {
+        validator: function (images: string[]) {
+          return images.length <= 5; // Max 5 images per station
+        },
+        message: "Station cannot have more than 5 images",
+      },
     },
     status: {
       type: String,
