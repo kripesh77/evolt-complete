@@ -1,49 +1,16 @@
-import { Tabs } from "expo-router";
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { Ionicons } from "@expo/vector-icons";
-import { QueryProvider } from "../services/queryClient";
-import { LocationProvider } from "../context/LocationContext";
-import { RecommendationProvider } from "../context/RecommendationContext";
+import { Stack } from "expo-router";
+import SafeArea from "@/components/common/SareArea";
+import { TransitionPresets } from "@react-navigation/stack";
 
-function TabLayout() {
+function RootLayout() {
   return (
-    <QueryProvider>
-      <LocationProvider>
-        <RecommendationProvider>
-          <Tabs>
-            <Tabs.Screen
-              name="maps"
-              options={{
-                headerShown: false,
-                tabBarLabel: "Map",
-                tabBarIcon: ({ color, size }) => (
-                  <FontAwesome name="map" size={size} color={color} />
-                ),
-              }}
-            />
-            <Tabs.Screen
-              name="stations"
-              options={{
-                headerShown: false,
-                tabBarLabel: "Stations",
-                tabBarIcon: ({ color, size }) => (
-                  <FontAwesome name="bolt" size={size} color={color} />
-                ),
-              }}
-            />
-            {/* Hide navigation from tabs - accessed programmatically */}
-            <Tabs.Screen
-              name="navigation"
-              options={{
-                href: null, // Hide from tab bar
-                headerShown: false,
-              }}
-            />
-          </Tabs>
-        </RecommendationProvider>
-      </LocationProvider>
-    </QueryProvider>
+    <SafeArea>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="modal" />
+      </Stack>
+    </SafeArea>
   );
 }
 
-export default TabLayout;
+export default RootLayout;

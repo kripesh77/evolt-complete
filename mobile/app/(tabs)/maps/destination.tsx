@@ -3,16 +3,16 @@ import { Keyboard } from "react-native";
 import { useRouter } from "expo-router";
 import MapView from "react-native-maps";
 import styled from "styled-components/native";
-import { useLocation } from "../../context/LocationContext";
-import { useRecommendation } from "../../context/RecommendationContext";
-import { PlaceSearch } from "../../components/maps/PlaceSearch";
+import { useLocation } from "../../../context/LocationContext";
+import { useRecommendation } from "../../../context/RecommendationContext";
+import { PlaceSearch } from "../../../components/maps/PlaceSearch";
 import {
   InstructionsOverlay,
   CoordsDisplay,
   BottomActionButton,
-} from "../../components/maps/MapOverlays";
-import { colors, spacing } from "../../theme";
-import type { NominatimResult, GeoLocation } from "../../types";
+} from "../../../components/maps/MapOverlays";
+import { colors, spacing } from "../../../theme";
+import type { NominatimResult, GeoLocation } from "../../../types";
 
 const Container = styled.View`
   flex: 1;

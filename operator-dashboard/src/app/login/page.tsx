@@ -23,7 +23,6 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      console.log("hi");
       await login(email, password);
       router.push("/dashboard");
     } catch (err: unknown) {

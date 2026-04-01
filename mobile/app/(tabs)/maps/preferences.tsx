@@ -2,15 +2,18 @@ import React, { useState } from "react";
 import { Switch, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import styled from "styled-components/native";
-import { useLocation } from "../../context/LocationContext";
-import { useRecommendation } from "../../context/RecommendationContext";
-import { useRouteRecommendations } from "../../hooks/useApi";
-import { FormInput, FormSection } from "../../components/common/FormComponents";
-import { Chip, ChipGroup } from "../../components/common/Chip";
-import { SegmentedControl } from "../../components/common/SegmentedControl";
-import { PrimaryButton } from "../../components/common/PrimaryButton";
-import { colors, spacing, typography } from "../../theme";
-import type { ConnectorType } from "../../types";
+import { useLocation } from "../../../context/LocationContext";
+import { useRecommendation } from "../../../context/RecommendationContext";
+import { useRouteRecommendations } from "../../../hooks/useApi";
+import {
+  FormInput,
+  FormSection,
+} from "../../../components/common/FormComponents";
+import { Chip, ChipGroup } from "../../../components/common/Chip";
+import { SegmentedControl } from "../../../components/common/SegmentedControl";
+import { PrimaryButton } from "../../../components/common/PrimaryButton";
+import { colors, spacing, typography } from "../../../theme";
+import type { ConnectorType } from "../../../types";
 
 const Container = styled.ScrollView`
   flex: 1;

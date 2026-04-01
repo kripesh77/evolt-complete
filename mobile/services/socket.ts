@@ -30,27 +30,48 @@ class SocketService {
     string,
     (payload: OccupancyChangedPayload) => void
   > = new Map();
+  private isInitialized: boolean = false;
 
   /**
    * Connect to the socket server
    */
   connect(): void {
+    // If socket exists and is connected, nothing to do
     if (this.socket?.connected) {
       return;
     }
 
-    this.socket = io(SOCKET_URL, {
-      transports: ["websocket"],
-      autoConnect: true,
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-    });
+    // If socket exists but disconnected, reconnect it
+    if (this.socket && !this.socket.connected) {
+      this.socket.connect();
+      return;
+    }
+
+    // Create new socket instance only if it doesn't exist
+    if (!this.socket) {
+      this.socket = io(SOCKET_URL, {
+        transports: ["websocket"],
+        autoConnect: true,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      this.setupSocketListeners();
+    }
+  }
+
+  /**
+   * Setup socket event listeners (called once during initialization)
+   */
+  private setupSocketListeners(): void {
+    if (!this.socket || this.isInitialized) return;
 
     this.socket.on("connect", () => {
       console.log("[Socket] Connected to server");
       // Re-subscribe to stations after reconnection
       this.subscribedStations.forEach((stationId) => {
+        console.log(`[Socket] Re-joining station room: ${stationId}`);
         this.socket?.emit("join-station", stationId);
       });
     });
@@ -86,36 +107,69 @@ class SocketService {
     this.socket.on("station-left", (data: { stationId: string }) => {
       console.log("[Socket] Left station room:", data.stationId);
     });
+
+    this.isInitialized = true;
   }
 
   /**
    * Disconnect from socket server
+   * Note: This keeps the socket instance for reconnection
    */
   disconnect(): void {
+    if (this.socket?.connected) {
+      this.socket.disconnect();
+    }
+    // Don't clear subscriptions - they'll be re-established on reconnect
+    // this.subscribedStations.clear();
+    // this.occupancyListeners.clear();
+  }
+
+  /**
+   * Complete cleanup - destroy socket instance
+   * Only use this when you want to completely reset the service
+   */
+  destroy(): void {
     if (this.socket) {
       this.socket.disconnect();
+      this.socket.removeAllListeners();
       this.socket = null;
-      this.subscribedStations.clear();
-      this.occupancyListeners.clear();
     }
+    this.subscribedStations.clear();
+    this.occupancyListeners.clear();
+    this.isInitialized = false;
   }
 
   /**
    * Subscribe to a station's occupancy updates
+   * Socket should already be connected via SocketProvider
    */
   subscribeToStation(
     stationId: string,
-    onOccupancyChange?: (payload: OccupancyChangedPayload) => void
+    onOccupancyChange?: (payload: OccupancyChangedPayload) => void,
   ): void {
+    // Ensure socket is connected (should already be via SocketProvider)
     if (!this.socket?.connected) {
+      console.warn("[Socket] Socket not connected, attempting to connect...");
       this.connect();
+
+      // Wait for connection before joining room
+      if (this.socket) {
+        this.socket.once("connect", () => {
+          console.log(
+            `[Socket] Subscribing to station after connect: ${stationId}`,
+          );
+          this.socket?.emit("join-station", stationId);
+        });
+      }
+    } else {
+      // Already connected, join immediately
+      console.log(`[Socket] Subscribing to station: ${stationId}`);
+      this.socket.emit("join-station", stationId);
     }
 
-    if (!this.subscribedStations.has(stationId)) {
-      this.socket?.emit("join-station", stationId);
-      this.subscribedStations.add(stationId);
-    }
+    this.subscribedStations.add(stationId);
 
+    // Set or update the listener
     if (onOccupancyChange) {
       this.occupancyListeners.set(stationId, onOccupancyChange);
     }
@@ -147,7 +201,7 @@ class SocketService {
    * Add a global listener for all occupancy changes
    */
   addGlobalOccupancyListener(
-    listener: (payload: OccupancyChangedPayload) => void
+    listener: (payload: OccupancyChangedPayload) => void,
   ): void {
     this.occupancyListeners.set("global", listener);
   }
