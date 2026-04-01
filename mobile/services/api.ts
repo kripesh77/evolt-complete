@@ -71,13 +71,21 @@ export const api = {
   async getRouteRecommendations(
     request: RouteRecommendationRequest,
   ): Promise<RouteRecommendationResponse> {
-    const response = await fetch(`${API_BASE_URL}/recommendations/route`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
+    const batteryPercent = request.vehicleProfile.batteryPercent;
+    console.log(batteryPercent);
+    console.log(
+      `${API_BASE_URL}/recommendations/${batteryPercent < 15 ? "emergency" : "route"}`,
+    );
+    const response = await fetch(
+      `${API_BASE_URL}/recommendations/${batteryPercent < 15 ? "emergency" : "route"}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(request),
       },
-      body: JSON.stringify(request),
-    });
+    );
 
     if (!response.ok) {
       const error = await response.text();

@@ -227,6 +227,7 @@ export class RecommendationController {
     next: NextFunction,
   ): Promise<void> {
     try {
+      console.log("hi");
       const { vehicleProfile, currentLocation } = req.body as {
         vehicleProfile: VehicleProfile;
         currentLocation: GeoLocation;
