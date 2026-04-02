@@ -11,13 +11,10 @@ import {
 import { useLocalSearchParams, Stack, useRouter } from "expo-router";
 import styled from "styled-components/native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRecommendation } from "../../../context/RecommendationContext";
-import { colors, spacing, typography } from "../../../theme";
-import {
-  formatOperatingHours,
-  isStationOpen,
-} from "../../../services/operatingHours";
-import type { RecommendedStation, NearbyStation } from "../../../types";
+import { useRecommendation } from "@/context/RecommendationContext";
+import { colors, spacing, typography } from "@/theme";
+import { formatOperatingHours, isStationOpen } from "@/services/operatingHours";
+import type { RecommendedStation, NearbyStation } from "@/types";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 

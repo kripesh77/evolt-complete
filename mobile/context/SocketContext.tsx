@@ -1,5 +1,5 @@
-import React, { createContext, useContext, useEffect, ReactNode } from "react";
-import { socketService } from "../services/socket";
+import { socketService } from "@/services/socket";
+import React, { createContext, ReactNode, useContext, useEffect } from "react";
 
 interface SocketContextType {
   isConnected: boolean;

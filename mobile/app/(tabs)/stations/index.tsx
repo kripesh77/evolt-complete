@@ -3,16 +3,13 @@ import { FlatList, RefreshControl, Image, View } from "react-native";
 import { useRouter } from "expo-router";
 import styled from "styled-components/native";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocation } from "../../../context/LocationContext";
-import { useRecommendation } from "../../../context/RecommendationContext";
-import { useNearbyStations } from "../../../hooks/useApi";
-import { PermissionPrompt } from "../../../components/common/PermissionPrompt";
-import { colors, spacing, typography } from "../../../theme";
-import {
-  formatOperatingHours,
-  isStationOpen,
-} from "../../../services/operatingHours";
-import type { NearbyStation, RecommendedStation } from "../../../types";
+import { useLocation } from "@/context/LocationContext";
+import { useRecommendation } from "@/context/RecommendationContext";
+import { useNearbyStations } from "@/hooks/useApi";
+import { PermissionPrompt } from "@/components/common/PermissionPrompt";
+import { colors, spacing, typography } from "@/theme";
+import { formatOperatingHours, isStationOpen } from "@/services/operatingHours";
+import type { NearbyStation, RecommendedStation } from "@/types";
 
 const Container = styled.View`
   flex: 1;

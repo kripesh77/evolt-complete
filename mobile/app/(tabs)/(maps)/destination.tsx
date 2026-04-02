@@ -1,18 +1,18 @@
 import React, { useState, useRef, useCallback } from "react";
 import { Keyboard } from "react-native";
 import { useRouter } from "expo-router";
-import MapView from "react-native-maps";
+import MapView, { PROVIDER_GOOGLE } from "react-native-maps";
 import styled from "styled-components/native";
-import { useLocation } from "../../../context/LocationContext";
-import { useRecommendation } from "../../../context/RecommendationContext";
-import { PlaceSearch } from "../../../components/maps/PlaceSearch";
+import { useLocation } from "@/context/LocationContext";
+import { useRecommendation } from "@/context/RecommendationContext";
+import { PlaceSearch } from "@/components/maps/PlaceSearch";
 import {
   InstructionsOverlay,
   CoordsDisplay,
   BottomActionButton,
-} from "../../../components/maps/MapOverlays";
-import { colors, spacing } from "../../../theme";
-import type { NominatimResult, GeoLocation } from "../../../types";
+} from "@/components/maps/MapOverlays";
+import { colors, spacing } from "@/theme";
+import type { NominatimResult, GeoLocation } from "@/types";
 
 const Container = styled.View`
   flex: 1;
@@ -108,7 +108,7 @@ export default function DestinationScreen() {
       latitude: dest.latitude,
     });
 
-    router.push("/maps/preferences");
+    router.push("/preferences");
   };
 
   return (
@@ -117,6 +117,7 @@ export default function DestinationScreen() {
 
       <Map
         ref={mapRef}
+        provider={PROVIDER_GOOGLE}
         initialRegion={mapRegion}
         onRegionChangeComplete={handleRegionChange}
         showsUserLocation

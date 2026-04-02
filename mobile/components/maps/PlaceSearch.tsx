@@ -1,15 +1,15 @@
-import React, { useState, useCallback } from "react";
+import { usePlaceSearch } from "@/hooks/useApi";
+import type { NominatimResult } from "@/types";
+import React, { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, Keyboard } from "react-native";
 import {
   Container,
-  SearchInput,
   LoaderWrapper,
-  ResultsContainer,
   ResultItem,
+  ResultsContainer,
   ResultText,
+  SearchInput,
 } from "./PlaceSearch.styles";
-import { usePlaceSearch } from "../../hooks/useApi";
-import type { NominatimResult } from "../../types";
 
 interface PlaceSearchProps {
   onSelectPlace: (place: NominatimResult) => void;

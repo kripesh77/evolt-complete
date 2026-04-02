@@ -1,6 +1,6 @@
+import { colors, spacing, typography } from "@/theme";
 import React from "react";
 import styled from "styled-components/native";
-import { colors, spacing, typography } from "../../theme";
 
 interface FormInputProps {
   label: string;

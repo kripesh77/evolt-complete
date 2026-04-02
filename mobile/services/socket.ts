@@ -1,5 +1,5 @@
+import { API_BASE_URL } from "@/constants";
 import { io, Socket } from "socket.io-client";
-import { API_BASE_URL } from "../constants";
 
 // Extract base URL without /api/v1
 const SOCKET_URL = API_BASE_URL.replace("/api/v1", "");

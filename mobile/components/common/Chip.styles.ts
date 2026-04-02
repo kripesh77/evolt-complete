@@ -1,5 +1,5 @@
+import { borderRadius, colors, spacing } from "@/theme";
 import styled from "styled-components/native";
-import { colors, spacing, borderRadius } from "../../theme";
 
 export const Container = styled.View`
   flex-direction: row;

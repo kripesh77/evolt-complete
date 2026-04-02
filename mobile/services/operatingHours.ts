@@ -1,4 +1,4 @@
-import { OperatingHours } from "../types";
+import { OperatingHours } from "@/types";
 
 /**
  * Format operating hours for display

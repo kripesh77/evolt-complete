@@ -1,17 +1,14 @@
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
 import styled from "styled-components/native";
-import { useRecommendation } from "../../../context/RecommendationContext";
-import {
-  FormInput,
-  FormSection,
-} from "../../../components/common/FormComponents";
-import { SegmentedControl } from "../../../components/common/SegmentedControl";
-import { Chip, ChipGroup } from "../../../components/common/Chip";
-import { PrimaryButton } from "../../../components/common/PrimaryButton";
-import { colors, spacing, typography } from "../../../theme";
-import { CONNECTOR_OPTIONS } from "../../../constants";
-import type { VehicleType, ConnectorType } from "../../../types";
+import { useRecommendation } from "@/context/RecommendationContext";
+import { FormInput, FormSection } from "@/components/common/FormComponents";
+import { SegmentedControl } from "@/components/common/SegmentedControl";
+import { Chip, ChipGroup } from "@/components/common/Chip";
+import { PrimaryButton } from "@/components/common/PrimaryButton";
+import { colors, spacing, typography } from "@/theme";
+import { CONNECTOR_OPTIONS } from "@/constants";
+import type { VehicleType, ConnectorType } from "@/types";
 
 const Container = styled.ScrollView`
   flex: 1;
@@ -117,7 +114,7 @@ export default function VehicleInfoScreen() {
       compatibleConnectors: selectedConnectors,
     });
 
-    router.push("/maps/destination");
+    router.push("/destination");
   };
 
   return (

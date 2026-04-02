@@ -1,10 +1,9 @@
-import { Tabs } from "expo-router";
+import { LocationProvider } from "@/context/LocationContext";
+import { RecommendationProvider } from "@/context/RecommendationContext";
+import { SocketProvider } from "@/context/SocketContext";
+import { QueryProvider } from "@/services/queryClient";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { Ionicons } from "@expo/vector-icons";
-import { QueryProvider } from "../../services/queryClient";
-import { LocationProvider } from "../../context/LocationContext";
-import { RecommendationProvider } from "../../context/RecommendationContext";
-import { SocketProvider } from "../../context/SocketContext";
+import { Tabs } from "expo-router";
 
 function TabLayout() {
   return (
@@ -14,7 +13,7 @@ function TabLayout() {
           <RecommendationProvider>
             <Tabs>
               <Tabs.Screen
-                name="maps"
+                name="(maps)"
                 options={{
                   headerShown: false,
                   tabBarLabel: "Map",

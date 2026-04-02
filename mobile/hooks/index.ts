@@ -1,5 +1,5 @@
+import type { ConnectorType } from "@/types";
 import { useCallback, useRef } from "react";
-import type { ConnectorType } from "../types";
 
 // Re-export API hooks
 export * from "./useApi";

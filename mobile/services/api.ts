@@ -1,10 +1,10 @@
+import { API_BASE_URL, NOMINATIM_CONFIG } from "@/constants";
 import type {
   NearbyStationsResponse,
+  NominatimResult,
   RouteRecommendationRequest,
   RouteRecommendationResponse,
-  NominatimResult,
-} from "../types";
-import { API_BASE_URL, NOMINATIM_CONFIG } from "../constants";
+} from "@/types";
 
 // Route to station response type
 export interface RouteToStationResponse {

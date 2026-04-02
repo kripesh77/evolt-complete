@@ -1,11 +1,11 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../services/api";
+import { api } from "@/services/api";
 import type {
-  RouteRecommendationRequest,
-  RouteRecommendationResponse,
   NearbyStationsResponse,
   NominatimResult,
-} from "../types";
+  RouteRecommendationRequest,
+  RouteRecommendationResponse,
+} from "@/types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 // Query keys for cache management
 export const queryKeys = {
@@ -22,7 +22,7 @@ export function useNearbyStations(
   longitude: number | undefined,
   latitude: number | undefined,
   radius: number = 5,
-  enabled: boolean = true
+  enabled: boolean = true,
 ) {
   return useQuery<NearbyStationsResponse, Error>({
     queryKey: queryKeys.nearbyStations(longitude ?? 0, latitude ?? 0, radius),
@@ -50,7 +50,11 @@ export function usePlaceSearch(query: string, enabled: boolean = true) {
 export function useRouteRecommendations() {
   const queryClient = useQueryClient();
 
-  return useMutation<RouteRecommendationResponse, Error, RouteRecommendationRequest>({
+  return useMutation<
+    RouteRecommendationResponse,
+    Error,
+    RouteRecommendationRequest
+  >({
     mutationFn: (request) => api.getRouteRecommendations(request),
     onSuccess: () => {
       // Invalidate nearby stations cache when we get new recommendations

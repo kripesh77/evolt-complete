@@ -1,13 +1,13 @@
+import type { GeoLocation } from "@/types";
+import * as Location from "expo-location";
 import React, {
   createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
   ReactNode,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
-import * as Location from "expo-location";
-import type { GeoLocation } from "../types";
 
 interface LocationContextType {
   location: GeoLocation | null;

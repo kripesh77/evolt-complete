@@ -1,5 +1,5 @@
+import { borderRadius, colors, shadows, spacing } from "@/theme";
 import styled from "styled-components/native";
-import { colors, spacing, borderRadius, shadows } from "../../theme";
 
 export const Container = styled.View`
   background-color: ${colors.background.light};

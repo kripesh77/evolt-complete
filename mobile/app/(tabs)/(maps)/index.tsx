@@ -1,17 +1,22 @@
-import React, { useEffect, useRef } from "react";
-import { useRouter } from "expo-router";
-import MapView, { Marker, Polyline, Polygon } from "react-native-maps";
-import styled from "styled-components/native";
-import { useLocation } from "../../../context/LocationContext";
-import { useRecommendation } from "../../../context/RecommendationContext";
-import { useNearbyStations } from "../../../hooks/useApi";
-import { PermissionPrompt } from "../../../components/common/PermissionPrompt";
-import { RadiusSelector } from "../../../components/maps/RadiusSelector";
+import { PermissionPrompt } from "@/components/common/PermissionPrompt";
 import {
-  LoadingIndicatorOverlay,
   BottomActionButton,
-} from "../../../components/maps/MapOverlays";
-import { colors, spacing } from "../../../theme";
+  LoadingIndicatorOverlay,
+} from "@/components/maps/MapOverlays";
+import { RadiusSelector } from "@/components/maps/RadiusSelector";
+import { useLocation } from "@/context/LocationContext";
+import { useRecommendation } from "@/context/RecommendationContext";
+import { useNearbyStations } from "@/hooks/useApi";
+import { colors, spacing } from "@/theme";
+import { useRouter } from "expo-router";
+import React, { useEffect, useRef } from "react";
+import MapView, {
+  Marker,
+  Polygon,
+  Polyline,
+  PROVIDER_GOOGLE,
+} from "react-native-maps";
+import styled from "styled-components/native";
 
 const Container = styled.View`
   flex: 1;
@@ -179,6 +184,7 @@ export default function HomeScreen() {
       <Map
         ref={mapRef}
         initialRegion={initialRegion}
+        provider={PROVIDER_GOOGLE}
         showsUserLocation
         showsMyLocationButton
       >
@@ -284,7 +290,7 @@ export default function HomeScreen() {
         ) : (
           <BottomActionButton
             text="Get Recommendation"
-            onPress={() => router.push("/maps/vehicleInfo")}
+            onPress={() => router.push("/vehicleInfo")}
           />
         )}
       </ButtonsContainer>

@@ -1,5 +1,5 @@
 // API endpoints - Update this to your backend URL
-export const API_BASE_URL = "https://0s2djcq5-3000.inc1.devtunnels.ms/api/v1";
+export const API_BASE_URL = "https://evolt-7i1j.onrender.com/api/v1";
 
 // Default values
 export const DEFAULT_RADIUS_KM = 5;

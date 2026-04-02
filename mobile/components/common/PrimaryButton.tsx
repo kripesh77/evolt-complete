@@ -1,7 +1,7 @@
+import { colors, spacing, typography } from "@/theme";
 import React from "react";
 import { ActivityIndicator } from "react-native";
 import styled from "styled-components/native";
-import { colors, spacing, typography } from "../../theme";
 
 interface PrimaryButtonProps {
   text: string;

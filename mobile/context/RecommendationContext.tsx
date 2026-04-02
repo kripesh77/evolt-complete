@@ -1,13 +1,13 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
 import type {
-  VehicleProfile,
   GeoLocation,
+  GeoPolygon,
+  NearbyStation,
   Preferences,
   RecommendedStation,
   RouteInfo,
-  GeoPolygon,
-  NearbyStation,
-} from "../types";
+  VehicleProfile,
+} from "@/types";
+import React, { createContext, ReactNode, useContext, useState } from "react";
 
 interface RecommendationContextType {
   // Flow data
