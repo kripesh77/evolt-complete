@@ -17,6 +17,7 @@ import MapView, {
   PROVIDER_GOOGLE,
 } from "react-native-maps";
 import styled from "styled-components/native";
+import SafeArea from "@/components/common/SareArea";
 
 const Container = styled.View`
   flex: 1;
@@ -180,120 +181,122 @@ export default function HomeScreen() {
   }));
 
   return (
-    <Container>
-      <Map
-        ref={mapRef}
-        initialRegion={initialRegion}
-        provider={PROVIDER_GOOGLE}
-        showsUserLocation
-        showsMyLocationButton
-      >
-        {hasResults && polygonCoordinates && (
-          <Polygon
-            coordinates={polygonCoordinates}
-            fillColor="rgba(76, 175, 80, 0.2)"
-            strokeColor="rgba(76, 175, 80, 0.8)"
-            strokeWidth={2}
-          />
-        )}
-
-        {hasResults && polylineCoordinates && (
-          <Polyline
-            coordinates={polylineCoordinates}
-            strokeColor="#2196F3"
-            strokeWidth={4}
-          />
-        )}
-
-        {hasResults &&
-          recommendations?.map((station) => (
-            <Marker
-              key={station.stationId}
-              coordinate={{
-                latitude: station.location.latitude,
-                longitude: station.location.longitude,
-              }}
-              title={station.stationName}
-              description={`${station.distanceKm.toFixed(1)} km • Score: ${(station.score * 100).toFixed(0)}%`}
-              pinColor="#4CAF50"
-              onCalloutPress={() =>
-                router.push({
-                  pathname: "/stations/[stationId]",
-                  params: {
-                    stationId: station.stationId,
-                    isRecommended: "true",
-                  },
-                })
-              }
+    <SafeArea>
+      <Container>
+        <Map
+          ref={mapRef}
+          initialRegion={initialRegion}
+          provider={PROVIDER_GOOGLE}
+          showsUserLocation
+          showsMyLocationButton
+        >
+          {hasResults && polygonCoordinates && (
+            <Polygon
+              coordinates={polygonCoordinates}
+              fillColor="rgba(76, 175, 80, 0.2)"
+              strokeColor="rgba(76, 175, 80, 0.8)"
+              strokeWidth={2}
             />
-          ))}
+          )}
 
-        {!hasResults &&
-          nearbyStations.map((station) => (
-            <Marker
-              key={station.stationId}
-              coordinate={{
-                latitude: station.location.coordinates[1],
-                longitude: station.location.coordinates[0],
-              }}
-              title={station.name}
-              description={station.address}
-              pinColor="#FF5722"
-              onCalloutPress={() =>
-                router.push({
-                  pathname: "/stations/[stationId]",
-                  params: {
-                    stationId: station.stationId,
-                    isRecommended: "false",
-                  },
-                })
-              }
+          {hasResults && polylineCoordinates && (
+            <Polyline
+              coordinates={polylineCoordinates}
+              strokeColor="#2196F3"
+              strokeWidth={4}
             />
-          ))}
-      </Map>
+          )}
 
-      {!hasResults && (
-        <RadiusSelector selectedRadius={radius} onRadiusChange={setRadius} />
-      )}
+          {hasResults &&
+            recommendations?.map((station) => (
+              <Marker
+                key={station.stationId}
+                coordinate={{
+                  latitude: station.location.latitude,
+                  longitude: station.location.longitude,
+                }}
+                title={station.stationName}
+                description={`${station.distanceKm.toFixed(1)} km • Score: ${(station.score * 100).toFixed(0)}%`}
+                pinColor="#4CAF50"
+                onCalloutPress={() =>
+                  router.push({
+                    pathname: "/stations/[stationId]",
+                    params: {
+                      stationId: station.stationId,
+                      isRecommended: "true",
+                    },
+                  })
+                }
+              />
+            ))}
 
-      {loadingStations && !hasResults && (
-        <LoadingIndicatorOverlay text="Loading stations..." />
-      )}
+          {!hasResults &&
+            nearbyStations.map((station) => (
+              <Marker
+                key={station.stationId}
+                coordinate={{
+                  latitude: station.location.coordinates[1],
+                  longitude: station.location.coordinates[0],
+                }}
+                title={station.name}
+                description={station.address}
+                pinColor="#FF5722"
+                onCalloutPress={() =>
+                  router.push({
+                    pathname: "/stations/[stationId]",
+                    params: {
+                      stationId: station.stationId,
+                      isRecommended: "false",
+                    },
+                  })
+                }
+              />
+            ))}
+        </Map>
 
-      {!hasResults && nearbyStations.length > 0 && (
-        <StationCountContainer>
-          <StationCountText>
-            {nearbyStations.length} station
-            {nearbyStations.length !== 1 ? "s" : ""} nearby
-          </StationCountText>
-        </StationCountContainer>
-      )}
-
-      {hasResults && (
-        <ResultsInfoContainer>
-          <ResultsInfoTitle>
-            {recommendations?.length} stations along route
-          </ResultsInfoTitle>
-          <ResultsInfoSubtitle>
-            {routeInfo?.totalDistanceKm.toFixed(1)} km •{" "}
-            {Math.round(routeInfo?.totalDurationMinutes || 0)} min
-          </ResultsInfoSubtitle>
-        </ResultsInfoContainer>
-      )}
-
-      <ButtonsContainer>
-        {hasResults ? (
-          <BottomActionButton
-            text="Clear & Go Back"
-            onPress={handleClearResults}
-          />
-        ) : (
-          <BottomActionButton
-            text="Get Recommendation"
-            onPress={() => router.push("/vehicleInfo")}
-          />
+        {!hasResults && (
+          <RadiusSelector selectedRadius={radius} onRadiusChange={setRadius} />
         )}
-      </ButtonsContainer>
-    </Container>
+
+        {loadingStations && !hasResults && (
+          <LoadingIndicatorOverlay text="Loading stations..." />
+        )}
+
+        {!hasResults && nearbyStations.length > 0 && (
+          <StationCountContainer>
+            <StationCountText>
+              {nearbyStations.length} station
+              {nearbyStations.length !== 1 ? "s" : ""} nearby
+            </StationCountText>
+          </StationCountContainer>
+        )}
+
+        {hasResults && (
+          <ResultsInfoContainer>
+            <ResultsInfoTitle>
+              {recommendations?.length} stations along route
+            </ResultsInfoTitle>
+            <ResultsInfoSubtitle>
+              {routeInfo?.totalDistanceKm.toFixed(1)} km •{" "}
+              {Math.round(routeInfo?.totalDurationMinutes || 0)} min
+            </ResultsInfoSubtitle>
+          </ResultsInfoContainer>
+        )}
+
+        <ButtonsContainer>
+          {hasResults ? (
+            <BottomActionButton
+              text="Clear & Go Back"
+              onPress={handleClearResults}
+            />
+          ) : (
+            <BottomActionButton
+              text="Get Recommendation"
+              onPress={() => router.push("/vehicleInfo")}
+            />
+          )}
+        </ButtonsContainer>
+      </Container>
+    </SafeArea>
   );
 }

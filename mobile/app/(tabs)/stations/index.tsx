@@ -10,6 +10,7 @@ import { PermissionPrompt } from "@/components/common/PermissionPrompt";
 import { colors, spacing, typography } from "@/theme";
 import { formatOperatingHours, isStationOpen } from "@/services/operatingHours";
 import type { NearbyStation, RecommendedStation } from "@/types";
+import SafeArea from "@/components/common/SareArea";
 
 const Container = styled.View`
   flex: 1;
@@ -338,69 +339,73 @@ export default function StationsListScreen() {
   // Show recommended stations if we have results
   if (hasResults && recommendations) {
     return (
-      <Container>
-        <Header>
-          <HeaderTitle>Recommended Stations</HeaderTitle>
-          <HeaderSubtitle>
-            {recommendations.length} stations found along your route
-          </HeaderSubtitle>
-        </Header>
-        <FlatList
-          data={recommendations}
-          keyExtractor={(item) => item.stationId}
-          renderItem={({ item }) => (
-            <RecommendedStationItem
-              station={item}
-              onPress={() => handleStationPress(item.stationId, true)}
-            />
-          )}
-          ListEmptyComponent={
-            <EmptyContainer>
-              <EmptyText>No stations found along your route</EmptyText>
-            </EmptyContainer>
-          }
-        />
-      </Container>
+      <SafeArea>
+        <Container>
+          <Header>
+            <HeaderTitle>Recommended Stations</HeaderTitle>
+            <HeaderSubtitle>
+              {recommendations.length} stations found along your route
+            </HeaderSubtitle>
+          </Header>
+          <FlatList
+            data={recommendations}
+            keyExtractor={(item) => item.stationId}
+            renderItem={({ item }) => (
+              <RecommendedStationItem
+                station={item}
+                onPress={() => handleStationPress(item.stationId, true)}
+              />
+            )}
+            ListEmptyComponent={
+              <EmptyContainer>
+                <EmptyText>No stations found along your route</EmptyText>
+              </EmptyContainer>
+            }
+          />
+        </Container>
+      </SafeArea>
     );
   }
 
   // Show nearby stations
   return (
-    <Container>
-      <Header>
-        <HeaderTitle>Nearby Stations</HeaderTitle>
-        <HeaderSubtitle>
-          Stations within {radius} km of your location
-        </HeaderSubtitle>
-      </Header>
-      <FlatList
-        data={nearbyStations}
-        keyExtractor={(item) => item.stationId}
-        renderItem={({ item }) => (
-          <NearbyStationItem
-            station={item}
-            onPress={() => handleStationPress(item.stationId, false)}
-          />
-        )}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            colors={[colors.primary]}
-          />
-        }
-        ListEmptyComponent={
-          loadingStations ? (
-            <EmptyContainer>
-              <EmptyText>Loading stations...</EmptyText>
-            </EmptyContainer>
-          ) : (
-            <EmptyContainer>
-              <EmptyText>No stations found nearby</EmptyText>
-            </EmptyContainer>
-          )
-        }
-      />
-    </Container>
+    <SafeArea>
+      <Container>
+        <Header>
+          <HeaderTitle>Nearby Stations</HeaderTitle>
+          <HeaderSubtitle>
+            Stations within {radius} km of your location
+          </HeaderSubtitle>
+        </Header>
+        <FlatList
+          data={nearbyStations}
+          keyExtractor={(item) => item.stationId}
+          renderItem={({ item }) => (
+            <NearbyStationItem
+              station={item}
+              onPress={() => handleStationPress(item.stationId, false)}
+            />
+          )}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              colors={[colors.primary]}
+            />
+          }
+          ListEmptyComponent={
+            loadingStations ? (
+              <EmptyContainer>
+                <EmptyText>Loading stations...</EmptyText>
+              </EmptyContainer>
+            ) : (
+              <EmptyContainer>
+                <EmptyText>No stations found nearby</EmptyText>
+              </EmptyContainer>
+            )
+          }
+        />
+      </Container>
+    </SafeArea>
   );
 }

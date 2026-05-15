@@ -150,8 +150,8 @@ export default function PreferencesScreen() {
   >(vehicleProfile?.compatibleConnectors[0]);
 
   // Offset state
-  const [offsetValue, setOffsetValue] = useState(String(routeOffsetKm));
-  const [offsetUnit, setOffsetUnit] = useState<OffsetUnit>("km");
+  const [offsetValue, setOffsetValue] = useState(String(routeOffsetKm * 1000));
+  const [offsetUnit, setOffsetUnit] = useState<OffsetUnit>("m");
   const [offsetError, setOffsetError] = useState<string | undefined>();
 
   const availableConnectors = vehicleProfile?.compatibleConnectors || [];

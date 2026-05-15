@@ -53,7 +53,7 @@ export function RecommendationProvider({ children }: { children: ReactNode }) {
   const [destination, setDestinationState] = useState<GeoLocation | null>(null);
   const [preferences, setPreferencesState] = useState<Preferences | null>(null);
   const [radius, setRadiusState] = useState(5);
-  const [routeOffsetKm, setRouteOffsetKmState] = useState(5);
+  const [routeOffsetKm, setRouteOffsetKmState] = useState(0.1);
   const [recommendations, setRecommendations] = useState<
     RecommendedStation[] | null
   >(null);

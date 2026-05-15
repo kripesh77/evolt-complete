@@ -4,12 +4,10 @@ import { TransitionPresets } from "@react-navigation/stack";
 
 function RootLayout() {
   return (
-    <SafeArea>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" />
-      </Stack>
-    </SafeArea>
+    <Stack>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="modal" />
+    </Stack>
   );
 }
 
