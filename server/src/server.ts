@@ -14,7 +14,7 @@ process.on("uncaughtException", (err) => {
   process.exit(1);
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8000;
 
 // Start server
 const startServer = async () => {

@@ -7,7 +7,6 @@ import type {
   Port,
   ScoringWeights,
   GeoLocation,
-  RouteInfo,
   RouteAwareResponse,
   OperatingHours,
 } from "../types/vehicle.js";

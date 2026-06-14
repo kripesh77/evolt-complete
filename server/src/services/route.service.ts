@@ -7,6 +7,7 @@ import type {
   GeoPolygon,
   DistanceMatrixResult,
 } from "../types/vehicle.js";
+import { buffer, lineString } from "@turf/turf";
 
 const ORS_BASE_URL = "https://api.openrouteservice.org";
 
@@ -84,42 +85,43 @@ export class RouteService {
   }
 
   /**
-   * Create a polygon buffer around the route polyline
-   * Uses convex hull of offset points to guarantee a valid (non-self-intersecting) polygon
+   * Create a polygon buffer that hugs the route polyline, staying within
+   * `offsetKm` of every point on the line — not a convex hull.
+   *
+   * True GIS buffer (Minkowski sum of the line with a disk of radius
+   * `offsetKm`): each segment gets a parallel strip on both sides, bends
+   * get rounded joins, and the ends get rounded caps, merged into one
+   * polygon.
    */
   static createRouteBuffer(
     polyline: [number, number][],
     offsetKm: number,
   ): GeoPolygon {
-    // Convert offset from km to approximate degrees
-    // At equator: 1 degree ≈ 111 km
-    const avgLat =
-      polyline.reduce((sum, coord) => sum + coord[1], 0) / polyline.length;
-    const latOffset = offsetKm / 111;
-    const lonOffset = offsetKm / (111 * Math.cos((avgLat * Math.PI) / 180));
+    const line = lineString(polyline);
 
-    // Generate offset points around each polyline point (8 directions)
-    const allPoints: [number, number][] = [];
-    const directions = 8;
+    const buffered = buffer(line, offsetKm, { units: "kilometers" });
 
-    for (const point of polyline) {
-      for (let d = 0; d < directions; d++) {
-        const angle = (d * 2 * Math.PI) / directions;
-        const offsetPoint: [number, number] = [
-          point[0] + Math.cos(angle) * lonOffset,
-          point[1] + Math.sin(angle) * latOffset,
-        ];
-        allPoints.push(offsetPoint);
-      }
+    if (!buffered?.geometry) {
+      throw new Error("Failed to buffer route polyline");
     }
 
-    // Compute convex hull of all offset points
+    const { geometry } = buffered;
+
+    if (geometry.type === "Polygon") {
+      return {
+        type: "Polygon",
+        coordinates: geometry.coordinates as unknown as [number, number][][],
+      };
+    }
+
+    // Very rare: a heavily self-overlapping route can make turf return a
+    // MultiPolygon. Fall back to a convex hull over every ring so the
+    // search area still fully covers the route.
+    const allPoints = geometry.coordinates.flatMap(
+      (poly) => poly[0] as unknown as [number, number][],
+    );
     const hull = this.convexHull(allPoints);
-
-    // Close the polygon
-    if (hull.length > 0) {
-      hull.push(hull[0]!);
-    }
+    if (hull.length > 0) hull.push(hull[0]!);
 
     return {
       type: "Polygon",
