@@ -1,5 +1,5 @@
 // API endpoints - Update this to your backend URL
-export const API_BASE_URL = "http://192.168.254.16:3000/api/v1";
+export const API_BASE_URL = "https://3kdjqbdl-8000.inc1.devtunnels.ms/api/v1";
 
 // Default values
 export const DEFAULT_RADIUS_KM = 5;
