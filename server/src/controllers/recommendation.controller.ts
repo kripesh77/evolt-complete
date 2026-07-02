@@ -156,6 +156,8 @@ export class RecommendationController {
     try {
       const { longitude, latitude, radius, vehicleType } = req.query;
 
+      console.log(longitude, latitude);
+
       // Parse and validate coordinates
       const lng = parseFloat(longitude as string);
       const lat = parseFloat(latitude as string);

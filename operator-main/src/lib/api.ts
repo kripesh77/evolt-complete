@@ -11,7 +11,7 @@ import {
 
 // Change this to your backend URL
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000/api/v1";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 class ApiService {
   private token: string | null = null;
@@ -275,9 +275,10 @@ class ApiService {
     apiKey: string;
   }> {
     const response = await fetch(`${API_BASE_URL}/stations/cloudinary-config`);
-    const data = await this.handleResponse<
-      ApiResponse<{ cloudName: string; apiKey: string }>
-    >(response);
+    const data =
+      await this.handleResponse<
+        ApiResponse<{ cloudName: string; apiKey: string }>
+      >(response);
     return data.data;
   }
 

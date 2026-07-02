@@ -1,13 +1,14 @@
 import { Stack } from "expo-router";
-import SafeArea from "@/components/common/SareArea";
-import { TransitionPresets } from "@react-navigation/stack";
+import { AuthProvider } from "@/context/AuthContext";
 
 function RootLayout() {
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="modal" />
-    </Stack>
+    <AuthProvider>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="modal" />
+      </Stack>
+    </AuthProvider>
   );
 }
 

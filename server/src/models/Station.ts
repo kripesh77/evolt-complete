@@ -4,7 +4,6 @@ import type {
   Port,
   VehicleType,
   ConnectorType,
-  OperatingHours,
 } from "../types/vehicle.js";
 
 // Port Schema (subdocument with occupancy tracking)

@@ -5,10 +5,9 @@ export default function MapLayout() {
     <Stack>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen
-        name="vehicleInfo"
+        name="vehicle"
         options={{
-          title: "Vehicle Information",
-          headerBackTitle: "Back",
+          headerShown: false,
         }}
       />
       <Stack.Screen

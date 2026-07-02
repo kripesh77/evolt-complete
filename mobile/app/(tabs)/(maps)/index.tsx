@@ -292,7 +292,7 @@ export default function HomeScreen() {
           ) : (
             <BottomActionButton
               text="Get Recommendation"
-              onPress={() => router.push("/vehicleInfo")}
+              onPress={() => router.push("/vehicle")}
             />
           )}
         </ButtonsContainer>

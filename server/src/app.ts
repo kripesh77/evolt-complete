@@ -4,6 +4,7 @@ import { recommendationRouter } from "./routes/recommendation.routes.js";
 import authRouter from "./routes/authenticatedRoute.js";
 import { initializeEventHandlers } from "./events/index.js";
 import cors from "cors";
+import { vehicleRouter } from "./routes/vehicle.routes.js";
 
 export const app = express();
 
@@ -28,6 +29,7 @@ app.get("/health", (req: Request, res: Response) => {
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/stations", stationRouter);
 app.use("/api/v1/recommendations", recommendationRouter);
+app.use("/api/v1/vehicles", vehicleRouter);
 
 // Handle undefined routes (Express 5 uses different syntax)
 app.use((req: Request, res: Response) => {

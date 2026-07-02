@@ -11,6 +11,7 @@ import type {
   FavoriteAddedEvent,
   FavoriteRemovedEvent,
 } from "../events/types.js";
+import Vehicle from "../models/Vehicle.js";
 
 /**
  * Register a new user (user, operator, or admin)
@@ -22,7 +23,7 @@ export const register = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { name, email, password, role, company, phone } = req.body;
+    const { name, email, password, role, company, phone } = req.body || {};
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -126,7 +127,7 @@ export const login = async (
   next: NextFunction,
 ): Promise<void> => {
   try {
-    const { email, password } = req.body;
+    const { email, password } = req.body || {};
 
     // Validate required fields
     if (!email || !password) {
@@ -225,7 +226,7 @@ export const getMe = async (
       return;
     }
 
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).populate("vehicleProfiles");
 
     if (!user) {
       res.status(404).json({
@@ -412,29 +413,21 @@ export const addVehicleProfile = async (
       return;
     }
 
-    const {
-      vehicleType,
-      batteryCapacity_kWh,
-      efficiency_kWh_per_km,
-      batteryPercent,
-      compatibleConnectors,
-    } = req.body;
+    const { vehicleId } = req.body || {};
 
     // Validate required fields
-    if (
-      !vehicleType ||
-      !batteryCapacity_kWh ||
-      !efficiency_kWh_per_km ||
-      !compatibleConnectors
-    ) {
+    if (!vehicleId || !mongoose.isValidObjectId(vehicleId)) {
       res.status(400).json({
         status: "fail",
-        message: "All vehicle profile fields are required",
+        message: "Please provide valid vehicle id",
       });
       return;
     }
 
-    const user = await User.findById(req.user.id);
+    const [user, vehicle] = await Promise.all([
+      User.findById(req.user.id).populate("vehicleProfiles"),
+      Vehicle.findById(vehicleId),
+    ]);
 
     if (!user) {
       res.status(404).json({
@@ -444,11 +437,32 @@ export const addVehicleProfile = async (
       return;
     }
 
-    // Check max profiles limit
+    if (!vehicle) {
+      res.status(404).json({
+        status: "fail",
+        message: "Vehicle not found",
+      });
+      return;
+    }
+
+    if (user.vehicleProfiles && user.vehicleProfiles.length > 0) {
+      const vehicleProfilesId = user.vehicleProfiles.map((vehicle) =>
+        vehicle._id.toString(),
+      );
+      if (vehicleProfilesId.includes(vehicleId)) {
+        res.status(400).json({
+          status: "fail",
+          message: "Vehicle is already present on the user's profile",
+        });
+        return;
+      }
+    }
+
     if (user.vehicleProfiles && user.vehicleProfiles.length >= 5) {
+      // Check max profiles limit
       res.status(400).json({
         status: "fail",
-        message: "Maximum 5 vehicle profiles allowed",
+        message: "Maximum 5 vehicle profiles are allowed",
       });
       return;
     }
@@ -458,13 +472,7 @@ export const addVehicleProfile = async (
       user.vehicleProfiles = [];
     }
 
-    user.vehicleProfiles.push({
-      vehicleType,
-      batteryCapacity_kWh,
-      efficiency_kWh_per_km,
-      batteryPercent: batteryPercent || 100,
-      compatibleConnectors,
-    });
+    user.vehicleProfiles.push(vehicle._id);
 
     await user.save();
 
@@ -477,7 +485,7 @@ export const addVehicleProfile = async (
         createEvent<VehicleProfileAddedEvent>("vehicleProfile.added", {
           userId: user._id.toString(),
           profileId: newProfile._id?.toString() || "",
-          vehicleType,
+          vehicleType: vehicle.vehicleType,
         }),
       );
     }

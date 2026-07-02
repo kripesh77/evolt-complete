@@ -16,11 +16,11 @@ type SeedStation = Omit<
 };
 
 // Helper function to convert old string format to new OperatingHours format
-function parseOperatingHours(hoursString: string): OperatingHours {
+export function parseOperatingHours(hoursString: string): OperatingHours {
   if (hoursString === "24/7") {
     return { type: "24/7" };
   }
-  
+
   // Parse custom hours like "06:00 - 23:00"
   const match = hoursString.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
   if (match) {
@@ -30,7 +30,7 @@ function parseOperatingHours(hoursString: string): OperatingHours {
       closeTime: match[2],
     };
   }
-  
+
   // Default to 24/7 if parsing fails
   return { type: "24/7" };
 }
@@ -374,15 +374,7 @@ async function seedDatabase() {
       email: "user@test.com",
       password: "password123",
       role: "user",
-      vehicleProfiles: [
-        {
-          vehicleType: "car",
-          batteryCapacity_kWh: 60,
-          efficiency_kWh_per_km: 0.15,
-          batteryPercent: 80,
-          compatibleConnectors: ["CCS", "Type2"],
-        },
-      ],
+      vehicleProfiles: ["6a43e38a59f7bf6df3398317"],
     });
     console.log(`✅ Created user: ${regularUser.email}`);
 

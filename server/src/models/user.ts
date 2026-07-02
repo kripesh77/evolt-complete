@@ -1,7 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import type { JWTPayload, UserRole, VehicleProfile } from "../types/vehicle.js";
+import type { JWTPayload, UserRole } from "../types/vehicle.js";
 
 // Document interface with methods
 export interface IUserDocument {
@@ -14,7 +14,7 @@ export interface IUserDocument {
   company?: string;
   phone?: string;
   // User-specific fields
-  vehicleProfiles?: VehicleProfile[];
+  vehicleProfiles?: mongoose.Types.ObjectId[];
   favoriteStations?: mongoose.Types.ObjectId[];
   // Common fields
   isActive: boolean;
@@ -35,41 +35,6 @@ export interface IUserModel extends mongoose.Model<IUserDocument> {
   findOperators(): Promise<IUserDocument[]>;
   findAdmins(): Promise<IUserDocument[]>;
 }
-
-// Vehicle Profile sub-schema
-const vehicleProfileSchema = new Schema(
-  {
-    vehicleType: {
-      type: String,
-      enum: ["bike", "car"],
-      required: true,
-    },
-    batteryCapacity_kWh: {
-      type: Number,
-      required: true,
-      min: 0.5,
-      max: 200,
-    },
-    efficiency_kWh_per_km: {
-      type: Number,
-      required: true,
-      min: 0.01,
-      max: 1,
-    },
-    batteryPercent: {
-      type: Number,
-      min: 0,
-      max: 100,
-      default: 100,
-    },
-    compatibleConnectors: {
-      type: [String],
-      enum: ["AC_SLOW", "Type2", "CCS", "CHAdeMO"],
-      required: true,
-    },
-  },
-  // _id enabled for reliable deletion by ID
-);
 
 const userSchema = new Schema<IUserDocument, IUserModel>(
   {
@@ -117,16 +82,12 @@ const userSchema = new Schema<IUserDocument, IUserModel>(
       match: [/^[+]?[\d\s-()]{10,20}$/, "Please provide a valid phone number"],
     },
     // User-specific fields
-    vehicleProfiles: {
-      type: [vehicleProfileSchema],
-      default: [],
-      validate: {
-        validator: function (profiles: VehicleProfile[]) {
-          return profiles.length <= 5; // Max 5 vehicle profiles per user
-        },
-        message: "Maximum 5 vehicle profiles allowed",
+    vehicleProfiles: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Vehicle",
       },
-    },
+    ],
     favoriteStations: {
       type: [{ type: Schema.Types.ObjectId, ref: "Station" }],
       default: [],

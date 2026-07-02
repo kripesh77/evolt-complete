@@ -2,6 +2,26 @@
 export type VehicleType = "bike" | "car";
 export type ConnectorType = "AC_SLOW" | "Type2" | "CCS" | "CHAdeMO";
 
+// Vehicle catalog item from backend
+export interface VehicleCatalogItem {
+  _id?: string;
+  make: string;
+  modelName: string;
+  variant?: string;
+  vehicleType: VehicleType;
+  batteryCapacity_kWh: number;
+  efficiency_kWh_per_km?: number;
+  compatibleConnectors: ConnectorType[];
+}
+
+export interface VehicleSearchResponse {
+  status: string;
+  results: number;
+  data: {
+    vehicles: VehicleCatalogItem[];
+  };
+}
+
 // Operating Hours
 export interface OperatingHours {
   type: "24/7" | "custom";

@@ -4,6 +4,7 @@ import type {
   NominatimResult,
   RouteRecommendationRequest,
   RouteRecommendationResponse,
+  VehicleSearchResponse,
 } from "@/types";
 
 // Route to station response type
@@ -40,6 +41,34 @@ export interface RouteToStationResponse {
 }
 
 export const api = {
+  /**
+   * Search the vehicle catalog by make/model/variant.
+   */
+  async searchVehicles(
+    query: string,
+    vehicleType?: "bike" | "car",
+  ): Promise<VehicleSearchResponse> {
+    const params = new URLSearchParams();
+
+    const trimmedQuery = query.trim();
+    if (trimmedQuery) {
+      params.set("q", trimmedQuery);
+    }
+
+    if (vehicleType) {
+      params.set("vehicleType", vehicleType);
+    }
+
+    const response = await fetch(`${API_BASE_URL}/vehicles?${params}`);
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to search vehicles: ${error}`);
+    }
+
+    return response.json();
+  },
+
   /**
    * Fetch nearby stations
    */
