@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { default as styled } from "styled-components/native";
+import { useAuth } from "@/context/AuthContext";
 import { useRecommendation } from "@/context/RecommendationContext";
 import { FormInput, FormSection } from "@/components/common/FormComponents";
 import { Chip, ChipGroup } from "@/components/common/Chip";
@@ -29,7 +30,7 @@ const ErrorText = styled.Text`
 const HelperText = styled.Text`
   color: ${colors.text.muted};
   font-size: ${typography.sizes.sm}px;
-  margin-top: ${spacing.sm}px;
+  margin-bottom: ${spacing.sm}px;
   line-height: 20px;
 `;
 
@@ -37,7 +38,7 @@ const ButtonContainer = styled.View`
   margin-top: ${spacing.xl}px;
 `;
 
-const ResultCard = styled.TouchableOpacity`
+const ResultCard = styled.View`
   flex-direction: row;
   align-items: center;
   border-width: 1px;
@@ -101,23 +102,44 @@ const ResultSubtitle = styled.Text`
   font-size: ${typography.sizes.sm}px;
 `;
 
+const ResultActions = styled.View`
+  margin-top: ${spacing.sm}px;
+  gap: ${spacing.sm}px;
+`;
+
+const ResultActionButton = styled.TouchableOpacity<{
+  variant?: "primary" | "secondary" | "danger";
+  disabled?: boolean;
+}>`
+  padding: ${spacing.sm}px ${spacing.md}px;
+  border-radius: 999px;
+  align-items: center;
+  justify-content: center;
+  background-color: ${(props) =>
+    props.variant === "secondary"
+      ? colors.background.default
+      : props.variant === "danger"
+        ? colors.secondary
+        : colors.primary};
+  border-width: ${(props) => (props.variant === "secondary" ? 1 : 0)}px;
+  border-color: ${colors.primary};
+  opacity: ${(props) => (props.disabled ? 0.6 : 1)};
+`;
+
+const ResultActionText = styled.Text<{ variant?: "primary" | "secondary" }>`
+  color: ${(props) =>
+    props.variant === "secondary" ? colors.primary : colors.text.inverse};
+  font-size: ${typography.sizes.sm}px;
+  font-weight: 700;
+`;
+
 const SearchActions = styled.View`
   margin-top: ${spacing.sm}px;
 `;
 
-const ClearSelectionButton = styled.TouchableOpacity`
-  margin-top: ${spacing.sm}px;
-  align-self: flex-end;
-`;
-
-const ClearSelectionText = styled.Text`
-  color: ${colors.danger};
-  font-size: ${typography.sizes.md}px;
-  font-weight: 600;
-`;
-
 export default function VehicleSearchScreen() {
   const router = useRouter();
+  const { user, addVehicleProfile, removeVehicleProfile } = useAuth();
   const { setVehicleProfile } = useRecommendation();
 
   const [vehicleType, setVehicleType] = useState<VehicleType>("car");
@@ -127,6 +149,11 @@ export default function VehicleSearchScreen() {
   const [searchError, setSearchError] = useState("");
   const [selectedVehicle, setSelectedVehicle] =
     useState<VehicleCatalogItem | null>(null);
+  const [actionMessage, setActionMessage] = useState("");
+  const [addingVehicleId, setAddingVehicleId] = useState<string | null>(null);
+  const [removingVehicleId, setRemovingVehicleId] = useState<string | null>(
+    null,
+  );
 
   const [batteryPercent, setBatteryPercent] = useState("");
   const [efficiency, setEfficiency] = useState("");
@@ -136,10 +163,34 @@ export default function VehicleSearchScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchedOnce = useRef<boolean>(false);
+  const [showSearchSection, setShowSearchSection] = useState(false);
 
   const availableConnectors = CONNECTOR_OPTIONS.filter(
     (connector) => connector.forVehicle === vehicleType,
   );
+
+  const savedVehicleProfiles = user?.vehicleProfiles ?? [];
+  const hasSavedVehicleProfiles = savedVehicleProfiles.length > 0;
+
+  useEffect(() => {
+    if (!selectedVehicle && !hasSavedVehicleProfiles) {
+      setShowSearchSection(true);
+    }
+  }, [hasSavedVehicleProfiles, selectedVehicle]);
+
+  const isSavedVehicle = (vehicle: VehicleCatalogItem) =>
+    savedVehicleProfiles.some((savedVehicle) => {
+      if (vehicle._id && savedVehicle._id) {
+        return savedVehicle._id === vehicle._id;
+      }
+
+      return (
+        savedVehicle.make === vehicle.make &&
+        savedVehicle.modelName === vehicle.modelName &&
+        savedVehicle.variant === vehicle.variant &&
+        savedVehicle.vehicleType === vehicle.vehicleType
+      );
+    });
 
   const toggleConnector = (connector: ConnectorType) => {
     setSelectedConnectors((prev) => {
@@ -153,21 +204,69 @@ export default function VehicleSearchScreen() {
   const applyVehicleSelection = (vehicle: VehicleCatalogItem) => {
     setSelectedVehicle(vehicle);
     setVehicleType(vehicle.vehicleType);
-    setBatteryPercent("30");
-    setEfficiency(vehicle.vehicleType === "bike" ? "0.03" : "0.2");
-    setSelectedConnectors(vehicle.compatibleConnectors);
-    setSearchResults([vehicle]);
-    setSearchError("");
-  };
-
-  const clearSelection = () => {
-    setSelectedVehicle(null);
-    setSearchResults([]);
-    setSearchQuery("");
     setBatteryPercent("");
     setEfficiency("");
-    setSelectedConnectors([]);
-    setErrors({});
+    setSelectedConnectors(vehicle.compatibleConnectors);
+    setSearchError("");
+    setActionMessage("");
+  };
+
+  const openSearchSection = () => {
+    setShowSearchSection(true);
+    setActionMessage("");
+  };
+
+  const openSavedVehiclesSection = () => {
+    setShowSearchSection(false);
+    setActionMessage("");
+  };
+
+  const handleAddVehicleProfile = async (vehicle: VehicleCatalogItem) => {
+    if (!vehicle._id) {
+      setActionMessage("This vehicle cannot be saved right now.");
+      return;
+    }
+
+    if (isSavedVehicle(vehicle)) {
+      setActionMessage("This vehicle is already in your profile.");
+      return;
+    }
+
+    try {
+      setAddingVehicleId(vehicle._id);
+      await addVehicleProfile(vehicle._id);
+      setActionMessage("Vehicle added to your profile.");
+    } catch (error) {
+      setActionMessage(
+        error instanceof Error ? error.message : "Unable to save vehicle.",
+      );
+    } finally {
+      setAddingVehicleId(null);
+    }
+  };
+
+  const handleRemoveVehicleProfile = async (vehicle: VehicleCatalogItem) => {
+    if (!vehicle._id) {
+      setActionMessage("This vehicle cannot be removed right now.");
+      return;
+    }
+
+    if (!isSavedVehicle(vehicle)) {
+      setActionMessage("This vehicle is not in your profile.");
+      return;
+    }
+
+    try {
+      setRemovingVehicleId(vehicle._id);
+      await removeVehicleProfile(vehicle._id);
+      setActionMessage("Vehicle removed from your profile.");
+    } catch (error) {
+      setActionMessage(
+        error instanceof Error ? error.message : "Unable to remove vehicle.",
+      );
+    } finally {
+      setRemovingVehicleId(null);
+    }
   };
 
   const handleSearchVehicles = async (query: string) => {
@@ -249,11 +348,12 @@ export default function VehicleSearchScreen() {
   };
 
   const handleNext = () => {
+    if (!selectedVehicle) return;
     if (!validate()) return;
 
     setVehicleProfile({
-      vehicleType,
-      batteryCapacity_kWh: parseFloat(batteryPercent) > 0 ? 60 : 60,
+      vehicleType: selectedVehicle.vehicleType,
+      batteryCapacity_kWh: selectedVehicle.batteryCapacity_kWh,
       efficiency_kWh_per_km: parseFloat(efficiency),
       batteryPercent: parseFloat(batteryPercent),
       compatibleConnectors: selectedConnectors,
@@ -265,73 +365,32 @@ export default function VehicleSearchScreen() {
   return (
     <Container>
       <Content>
-        {!selectedVehicle && (
-          <FormSection title="Search Vehicle">
-            <FormInput
-              label="Search by make or model"
-              value={searchQuery}
-              onChangeText={(text) => {
-                setSearchQuery(text);
-                if (searchError) {
-                  setSearchError("");
-                }
-              }}
-              placeholder="e.g. Tesla Model 3"
-            />
-
-            {searchError ? <ErrorText>{searchError}</ErrorText> : null}
-            {isSearching ? (
-              <HelperText>Searching the catalog...</HelperText>
-            ) : null}
-            <HelperText>Search results include both bikes and cars.</HelperText>
-          </FormSection>
-        )}
-
         {selectedVehicle ? (
-          <ClearSelectionButton onPress={clearSelection}>
-            <ClearSelectionText>Clear selected vehicle</ClearSelectionText>
-          </ClearSelectionButton>
-        ) : null}
-
-        {searchResults.length > 0 && (
-          <FormSection
-            title={selectedVehicle ? "Selected Vehicle" : "Search Results"}
-          >
-            {searchResults.map((vehicle) => (
-              <ResultCard
-                key={
-                  vehicle._id ??
-                  `${vehicle.make}-${vehicle.modelName}-${vehicle.variant ?? "base"}`
-                }
-                onPress={() => applyVehicleSelection(vehicle)}
-                activeOpacity={0.85}
-              >
+          <>
+            <FormSection title="Selected Vehicle">
+              <ResultCard>
                 <ResultImagePlaceholder>
                   <ResultImageText>Image</ResultImageText>
                 </ResultImagePlaceholder>
 
                 <ResultContent>
-                  <ResultTitle>{vehicle.make}</ResultTitle>
-                  <ResultModel>{vehicle.modelName}</ResultModel>
-                  {vehicle.variant ? (
-                    <ResultVariant>{vehicle.variant}</ResultVariant>
+                  <ResultTitle>{selectedVehicle.make}</ResultTitle>
+                  <ResultModel>{selectedVehicle.modelName}</ResultModel>
+                  {selectedVehicle.variant ? (
+                    <ResultVariant>{selectedVehicle.variant}</ResultVariant>
                   ) : null}
                   <ResultSubtitle>
-                    {vehicle.vehicleType === "bike" ? "Bike" : "Car"} •{" "}
-                    {vehicle.batteryCapacity_kWh} kWh •{" "}
-                    {vehicle.compatibleConnectors.join(", ")}
+                    {selectedVehicle.vehicleType === "bike" ? "Bike" : "Car"} •{" "}
+                    {selectedVehicle.batteryCapacity_kWh} kWh •{" "}
+                    {selectedVehicle.compatibleConnectors.join(", ")}
                   </ResultSubtitle>
                 </ResultContent>
               </ResultCard>
-            ))}
-          </FormSection>
-        )}
+            </FormSection>
 
-        {selectedVehicle ? (
-          <>
             <HelperText>
-              Vehicle details were prefilled from the catalog. You can adjust
-              the efficiency and connector options before continuing.
+              Vehicle details come from your saved profile or the catalog. You
+              still enter battery percentage and efficiency manually.
             </HelperText>
 
             <FormInput
@@ -368,6 +427,183 @@ export default function VehicleSearchScreen() {
               ) : null}
             </FormSection>
           </>
+        ) : hasSavedVehicleProfiles && !showSearchSection ? (
+          <FormSection title="Your Vehicles">
+            <HelperText>
+              These are your saved vehicles. Choose one explicitly when you want
+              to use it.
+            </HelperText>
+
+            {savedVehicleProfiles.map((vehicle) => {
+              return (
+                <ResultCard
+                  key={
+                    vehicle._id ??
+                    `${vehicle.make}-${vehicle.modelName}-${vehicle.variant ?? "base"}`
+                  }
+                >
+                  <ResultImagePlaceholder>
+                    <ResultImageText>Image</ResultImageText>
+                  </ResultImagePlaceholder>
+
+                  <ResultContent>
+                    <ResultTitle>{vehicle.make}</ResultTitle>
+                    <ResultModel>{vehicle.modelName}</ResultModel>
+                    {vehicle.variant ? (
+                      <ResultVariant>{vehicle.variant}</ResultVariant>
+                    ) : null}
+                    <ResultSubtitle>
+                      {vehicle.vehicleType === "bike" ? "Bike" : "Car"} •{" "}
+                      {vehicle.batteryCapacity_kWh} kWh •{" "}
+                      {vehicle.compatibleConnectors.join(", ")}
+                    </ResultSubtitle>
+
+                    <ResultActions>
+                      <ResultActionButton
+                        onPress={() => applyVehicleSelection(vehicle)}
+                        activeOpacity={0.85}
+                      >
+                        <ResultActionText>Use this vehicle</ResultActionText>
+                      </ResultActionButton>
+
+                      <ResultActionButton
+                        onPress={() => void handleRemoveVehicleProfile(vehicle)}
+                        activeOpacity={0.85}
+                        variant="danger"
+                        disabled={removingVehicleId === vehicle._id}
+                      >
+                        <ResultActionText>
+                          {removingVehicleId === vehicle._id
+                            ? "Removing..."
+                            : "Remove from profile"}
+                        </ResultActionText>
+                      </ResultActionButton>
+                    </ResultActions>
+                  </ResultContent>
+                </ResultCard>
+              );
+            })}
+
+            <ButtonContainer>
+              <PrimaryButton
+                text="Search for a vehicle"
+                onPress={openSearchSection}
+              />
+            </ButtonContainer>
+          </FormSection>
+        ) : null}
+
+        {!selectedVehicle && showSearchSection ? (
+          <>
+            <FormSection title="Search Vehicle">
+              <FormInput
+                label="Search by make or model"
+                value={searchQuery}
+                onChangeText={(text) => {
+                  setSearchQuery(text);
+                  if (searchError) {
+                    setSearchError("");
+                  }
+                  if (actionMessage) {
+                    setActionMessage("");
+                  }
+                }}
+                placeholder="e.g. Tesla Model 3"
+              />
+
+              {searchError ? <ErrorText>{searchError}</ErrorText> : null}
+              {actionMessage ? <HelperText>{actionMessage}</HelperText> : null}
+              {isSearching ? (
+                <HelperText>Searching the catalog...</HelperText>
+              ) : null}
+              <HelperText>
+                Search results include both bikes and cars.
+              </HelperText>
+            </FormSection>
+
+            {hasSavedVehicleProfiles ? (
+              <ButtonContainer>
+                <PrimaryButton
+                  text="Back to my vehicles"
+                  onPress={openSavedVehiclesSection}
+                  variant="secondary"
+                />
+              </ButtonContainer>
+            ) : null}
+
+            {searchResults.length > 0 && (
+              <FormSection title="Search Results">
+                {searchResults.map((vehicle) => (
+                  <ResultCard
+                    key={
+                      vehicle._id ??
+                      `${vehicle.make}-${vehicle.modelName}-${vehicle.variant ?? "base"}`
+                    }
+                  >
+                    <ResultImagePlaceholder>
+                      <ResultImageText>Image</ResultImageText>
+                    </ResultImagePlaceholder>
+
+                    <ResultContent>
+                      <ResultTitle>{vehicle.make}</ResultTitle>
+                      <ResultModel>{vehicle.modelName}</ResultModel>
+                      {vehicle.variant ? (
+                        <ResultVariant>{vehicle.variant}</ResultVariant>
+                      ) : null}
+                      <ResultSubtitle>
+                        {vehicle.vehicleType === "bike" ? "Bike" : "Car"} •{" "}
+                        {vehicle.batteryCapacity_kWh} kWh •{" "}
+                        {vehicle.compatibleConnectors.join(", ")}
+                      </ResultSubtitle>
+
+                      <ResultActions>
+                        <ResultActionButton
+                          onPress={() => applyVehicleSelection(vehicle)}
+                          activeOpacity={0.85}
+                        >
+                          <ResultActionText>Use this vehicle</ResultActionText>
+                        </ResultActionButton>
+
+                        {user ? (
+                          isSavedVehicle(vehicle) ? (
+                            <ResultActionButton
+                              onPress={() =>
+                                void handleRemoveVehicleProfile(vehicle)
+                              }
+                              activeOpacity={0.85}
+                              variant="danger"
+                              disabled={removingVehicleId === vehicle._id}
+                            >
+                              <ResultActionText>
+                                {removingVehicleId === vehicle._id
+                                  ? "Removing..."
+                                  : "Remove from profile"}
+                              </ResultActionText>
+                            </ResultActionButton>
+                          ) : (
+                            <ResultActionButton
+                              onPress={() =>
+                                void handleAddVehicleProfile(vehicle)
+                              }
+                              activeOpacity={0.85}
+                              variant="secondary"
+                              disabled={addingVehicleId === vehicle._id}
+                            >
+                              <ResultActionText variant="secondary">
+                                {addingVehicleId === vehicle._id
+                                  ? "Adding..."
+                                  : "Add to my vehicles"}
+                              </ResultActionText>
+                            </ResultActionButton>
+                          )
+                        ) : null}
+                      </ResultActions>
+                    </ResultContent>
+                  </ResultCard>
+                ))}
+              </FormSection>
+            )}
+          </>
         ) : null}
 
         {selectedVehicle ? (
@@ -377,17 +613,17 @@ export default function VehicleSearchScreen() {
               onPress={handleNext}
             />
           </ButtonContainer>
-        ) : (
-          searchedOnce.current && (
-            <SearchActions>
-              <BottomText>Didn&apos;t find your vehicle?</BottomText>
-              <PrimaryButton
-                text="Enter Manually"
-                onPress={() => router.push("/vehicle/manual")}
-              />
-            </SearchActions>
-          )
-        )}
+        ) : null}
+
+        {!selectedVehicle && showSearchSection && searchedOnce.current ? (
+          <SearchActions>
+            <BottomText>Didn&apos;t find your vehicle?</BottomText>
+            <PrimaryButton
+              text="Enter Manually"
+              onPress={() => router.push("/vehicle/manual")}
+            />
+          </SearchActions>
+        ) : null}
       </Content>
     </Container>
   );

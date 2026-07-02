@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/constants";
+import type { VehicleCatalogItem } from "@/types";
 
 export interface AuthUser {
   id: string;
@@ -7,6 +8,7 @@ export interface AuthUser {
   role: string;
   company?: string;
   phone?: string;
+  vehicleProfiles?: VehicleCatalogItem[];
 }
 
 export interface AuthResponse {
@@ -15,6 +17,29 @@ export interface AuthResponse {
 }
 
 export interface AuthMeResponse {
+  status: string;
+  data: {
+    user: AuthUser;
+  };
+}
+
+export interface AddVehicleProfileResponse {
+  status: string;
+  message?: string;
+  data: {
+    vehicleProfiles: VehicleCatalogItem[];
+  };
+}
+
+export interface RemoveVehicleProfileResponse {
+  status: string;
+  message?: string;
+  data: {
+    vehicleProfiles: VehicleCatalogItem[];
+  };
+}
+
+export interface UpdateMeResponse {
   status: string;
   data: {
     user: AuthUser;
@@ -84,6 +109,47 @@ class AuthService {
 
   async getCurrentUser(token: string): Promise<AuthMeResponse> {
     return this.request<AuthMeResponse>("/auth/me", undefined, token);
+  }
+
+  async updateMe(
+    token: string,
+    payload: { name?: string; company?: string; phone?: string },
+  ): Promise<UpdateMeResponse> {
+    return this.request<UpdateMeResponse>(
+      "/auth/me",
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      },
+      token,
+    );
+  }
+
+  async addVehicleProfile(
+    token: string,
+    vehicleId: string,
+  ): Promise<AddVehicleProfileResponse> {
+    return this.request<AddVehicleProfileResponse>(
+      "/auth/vehicle-profiles",
+      {
+        method: "POST",
+        body: JSON.stringify({ vehicleId }),
+      },
+      token,
+    );
+  }
+
+  async removeVehicleProfile(
+    token: string,
+    vehicleId: string,
+  ): Promise<RemoveVehicleProfileResponse> {
+    return this.request<RemoveVehicleProfileResponse>(
+      `/auth/vehicle-profiles/${vehicleId}`,
+      {
+        method: "DELETE",
+      },
+      token,
+    );
   }
 }
 

@@ -4,6 +4,9 @@ import type {
   NominatimResult,
   RouteRecommendationRequest,
   RouteRecommendationResponse,
+  MyVehicleRequestsResponse,
+  SubmitVehicleRequestPayload,
+  SubmitVehicleRequestResponse,
   VehicleSearchResponse,
 } from "@/types";
 
@@ -170,6 +173,43 @@ export const api = {
 
     if (!response.ok) {
       return [];
+    }
+
+    return response.json();
+  },
+
+  async getMyVehicleRequests(token: string): Promise<MyVehicleRequestsResponse> {
+    const response = await fetch(`${API_BASE_URL}/vehicles/requests`, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to fetch your vehicle requests: ${error}`);
+    }
+
+    return response.json();
+  },
+
+  async submitVehicleRequest(
+    token: string,
+    payload: SubmitVehicleRequestPayload,
+  ): Promise<SubmitVehicleRequestResponse> {
+    const response = await fetch(`${API_BASE_URL}/vehicles/requests`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to submit vehicle request: ${error}`);
     }
 
     return response.json();

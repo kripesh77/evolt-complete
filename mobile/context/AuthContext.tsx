@@ -1,12 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import { authService, type AuthResponse, type AuthUser } from "@/services/auth";
+import {
+  authService,
+  type AuthResponse,
+  type AuthUser,
+} from "@/services/auth";
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -23,6 +28,13 @@ interface AuthContextType {
     phone?: string,
   ) => Promise<void>;
   logout: () => Promise<void>;
+  updateProfile: (payload: {
+    name?: string;
+    company?: string;
+    phone?: string;
+  }) => Promise<void>;
+  addVehicleProfile: (vehicleId: string) => Promise<void>;
+  removeVehicleProfile: (vehicleId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,17 +46,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const persistAuth = async (authData: AuthResponse) => {
+  const persistAuth = useCallback(async (authData: AuthResponse) => {
     await AsyncStorage.setItem(AUTH_TOKEN_KEY, authData.token);
     setToken(authData.token);
     setUser(authData.user);
-  };
+  }, []);
 
-  const clearAuth = async () => {
+  const clearAuth = useCallback(async () => {
     await AsyncStorage.removeItem(AUTH_TOKEN_KEY);
     setToken(null);
     setUser(null);
-  };
+  }, []);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -58,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const response = await authService.getCurrentUser(storedToken);
         setToken(storedToken);
         setUser(response.data.user);
-      } catch (error) {
+      } catch {
         await clearAuth();
       } finally {
         setIsLoading(false);
@@ -66,35 +78,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     void bootstrap();
-  }, []);
+  }, [clearAuth]);
 
-  const login = async (email: string, password: string) => {
-    const authData = await authService.login(email, password);
-    await persistAuth(authData);
-  };
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const authData = await authService.login(email, password);
+      await persistAuth(authData);
+    },
+    [persistAuth],
+  );
 
-  const register = async (
-    name: string,
-    email: string,
-    password: string,
-    role: string = "user",
-    company?: string,
-    phone?: string,
-  ) => {
-    const authData = await authService.register(
-      name,
-      email,
-      password,
-      role,
-      company,
-      phone,
-    );
-    await persistAuth(authData);
-  };
+  const register = useCallback(
+    async (
+      name: string,
+      email: string,
+      password: string,
+      role: string = "user",
+      company?: string,
+      phone?: string,
+    ) => {
+      const authData = await authService.register(
+        name,
+        email,
+        password,
+        role,
+        company,
+        phone,
+      );
+      await persistAuth(authData);
+    },
+    [persistAuth],
+  );
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await clearAuth();
-  };
+  }, [clearAuth]);
+
+  const updateProfile = useCallback(
+    async (payload: { name?: string; company?: string; phone?: string }) => {
+      if (!token) {
+        throw new Error("You must be signed in to update your profile.");
+      }
+
+      await authService.updateMe(token, payload);
+
+      const refreshedUser = await authService.getCurrentUser(token);
+      setUser(refreshedUser.data.user);
+    },
+    [token],
+  );
+
+  const addVehicleProfile = useCallback(
+    async (vehicleId: string) => {
+      if (!token) {
+        throw new Error("You must be signed in to save a vehicle profile.");
+      }
+
+      await authService.addVehicleProfile(token, vehicleId);
+
+      const refreshedUser = await authService.getCurrentUser(token);
+      setUser(refreshedUser.data.user);
+    },
+    [token],
+  );
+
+  const removeVehicleProfile = useCallback(
+    async (vehicleId: string) => {
+      if (!token) {
+        throw new Error("You must be signed in to remove a vehicle profile.");
+      }
+
+      await authService.removeVehicleProfile(token, vehicleId);
+
+      const refreshedUser = await authService.getCurrentUser(token);
+      setUser(refreshedUser.data.user);
+    },
+    [token],
+  );
 
   const value = useMemo<AuthContextType>(
     () => ({
@@ -105,8 +165,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       register,
       logout,
+      updateProfile,
+      addVehicleProfile,
+      removeVehicleProfile,
     }),
-    [user, token, isLoading],
+    [
+      user,
+      token,
+      isLoading,
+      login,
+      register,
+      logout,
+      updateProfile,
+      addVehicleProfile,
+      removeVehicleProfile,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

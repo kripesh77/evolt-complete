@@ -23,12 +23,12 @@ function TabLayout() {
                 }}
               />
               <Tabs.Screen
-                name="navigator"
+                name="stations"
                 options={{
                   headerShown: false,
-                  tabBarLabel: "Navigator",
+                  tabBarLabel: "Stations",
                   tabBarIcon: ({ color, size }) => (
-                    <FontAwesome name="compass" size={size} color={color} />
+                    <FontAwesome name="bolt" size={size} color={color} />
                   ),
                 }}
               />
@@ -39,16 +39,6 @@ function TabLayout() {
                   tabBarLabel: "Profile",
                   tabBarIcon: ({ color, size }) => (
                     <FontAwesome name="user" size={size} color={color} />
-                  ),
-                }}
-              />
-              <Tabs.Screen
-                name="stations"
-                options={{
-                  headerShown: false,
-                  tabBarLabel: "Stations",
-                  tabBarIcon: ({ color, size }) => (
-                    <FontAwesome name="bolt" size={size} color={color} />
                   ),
                 }}
               />

@@ -22,6 +22,50 @@ export interface VehicleSearchResponse {
   };
 }
 
+export type VehicleRequestStatus = "pending" | "approved" | "rejected";
+
+export interface VehicleRequest {
+  _id?: string;
+  requestedBy?: string;
+  make: string;
+  modelName: string;
+  variant?: string;
+  vehicleType: VehicleType;
+  batteryCapacity_kWh?: number;
+  efficiency_kWh_per_km?: number;
+  compatibleConnectors?: ConnectorType[];
+  notes?: string;
+  status: VehicleRequestStatus;
+  reviewNotes?: string;
+  resultingVehicleId?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MyVehicleRequestsResponse {
+  status: string;
+  requestedVehicles: VehicleRequest[];
+}
+
+export interface SubmitVehicleRequestPayload {
+  make: string;
+  modelName: string;
+  variant?: string;
+  vehicleType: VehicleType;
+  batteryCapacity_kWh?: number;
+  efficiency_kWh_per_km?: number;
+  compatibleConnectors?: ConnectorType[];
+  notes?: string;
+}
+
+export interface SubmitVehicleRequestResponse {
+  status: string;
+  message?: string;
+  data: {
+    request: VehicleRequest;
+  };
+}
+
 // Operating Hours
 export interface OperatingHours {
   type: "24/7" | "custom";
