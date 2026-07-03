@@ -34,6 +34,7 @@ export interface VehicleRequest {
   batteryCapacity_kWh?: number;
   efficiency_kWh_per_km?: number;
   compatibleConnectors?: ConnectorType[];
+  image?: string;
   notes?: string;
   status: VehicleRequestStatus;
   reviewNotes?: string;
@@ -55,6 +56,7 @@ export interface SubmitVehicleRequestPayload {
   batteryCapacity_kWh?: number;
   efficiency_kWh_per_km?: number;
   compatibleConnectors?: ConnectorType[];
+  image?: string;
   notes?: string;
 }
 

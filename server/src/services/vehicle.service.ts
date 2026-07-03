@@ -11,6 +11,7 @@ export interface CreateVehicleInput {
   modelName: string;
   variant?: string;
   vehicleType: VehicleType;
+  image: string;
   batteryCapacity_kWh: number;
   compatibleConnectors: ConnectorType[];
   addedBy?: string;
@@ -22,6 +23,7 @@ export interface SubmitVehicleRequestInput {
   modelName: string;
   variant?: string;
   vehicleType: VehicleType;
+  image: string;
   batteryCapacity_kWh?: number;
   compatibleConnectors?: ConnectorType[];
   notes?: string;
@@ -152,18 +154,21 @@ export class VehicleService {
       );
     }
 
+    const { make, modelName, variant } = input;
+
     // Check the catalog itself first — the vehicle might already exist
     const catalogFilter: Record<string, unknown> = {
-      make: { $regex: `^${escapeRegex(input.make.trim())}$`, $options: "i" },
+      make: { $regex: `^${escapeRegex(make.trim())}$`, $options: "i" },
       modelName: {
-        $regex: `^${escapeRegex(input.modelName.trim())}$`,
+        $regex: `^${escapeRegex(modelName.trim())}$`,
         $options: "i",
       },
       variant: input.variant
-        ? { $regex: `^${escapeRegex(input.variant.trim())}$`, $options: "i" }
+        ? {
+            $regex: `^${escapeRegex(variant ? variant.trim() : "")}$`,
+            $options: "i",
+          }
         : { $in: [null, ""] },
-      vehicleType: input.vehicleType,
-      isActive: true,
     };
 
     const inCatalog = await Vehicle.findOne(catalogFilter);
@@ -180,6 +185,7 @@ export class VehicleService {
       input.modelName,
       input.variant,
       input.vehicleType,
+      input.image,
     );
 
     if (duplicate) {
@@ -256,6 +262,7 @@ export class VehicleService {
       modelName: specs?.modelName ?? request.modelName,
       variant: specs?.variant ?? request.variant,
       vehicleType: specs?.vehicleType ?? request.vehicleType,
+      image: request.image,
       batteryCapacity_kWh,
       compatibleConnectors,
       addedBy: review.reviewedBy,

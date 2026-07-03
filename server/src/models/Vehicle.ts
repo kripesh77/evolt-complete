@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import validator from "validator";
 import type { VehicleType, ConnectorType } from "../types/vehicle.js";
 
 // Vehicle Document interface (catalog entry, admin-curated)
@@ -11,6 +12,7 @@ export interface VehicleDocument extends Document {
   modelName: string;
   variant?: string;
   vehicleType: VehicleType;
+  image: string;
   batteryCapacity_kWh: number;
   efficiency_kWh_per_km: number;
   compatibleConnectors: ConnectorType[];
@@ -47,6 +49,7 @@ const VehicleSchema = new Schema<VehicleDocument>(
         message: "Vehicle type must be bike or car",
       },
     },
+    image: { type: String, validate: validator.isURL },
     batteryCapacity_kWh: {
       type: Number,
       required: [true, "Battery capacity is required"],

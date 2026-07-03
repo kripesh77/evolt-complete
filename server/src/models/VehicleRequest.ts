@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
+import Validator from "validator";
 import type { VehicleType, ConnectorType } from "../types/vehicle.js";
 
 export type VehicleRequestStatus = "pending" | "approved" | "rejected";
@@ -15,6 +16,7 @@ export interface VehicleRequestDocument extends Document {
   modelName: string;
   variant?: string;
   vehicleType: VehicleType;
+  image: string;
   // Specs are optional on request — the user may not know exact figures,
   // admin fills in/corrects these when approving
   batteryCapacity_kWh?: number;
@@ -54,6 +56,7 @@ const VehicleRequestSchema = new Schema<VehicleRequestDocument>(
       trim: true,
       maxlength: [50, "Variant cannot exceed 50 characters"],
     },
+    image: { type: String, validate: Validator.isURL },
     vehicleType: {
       type: String,
       required: [true, "Vehicle type is required"],
@@ -66,11 +69,6 @@ const VehicleRequestSchema = new Schema<VehicleRequestDocument>(
       type: Number,
       min: [0.5, "Battery capacity must be at least 0.5 kWh"],
       max: [200, "Battery capacity cannot exceed 200 kWh"],
-    },
-    efficiency_kWh_per_km: {
-      type: Number,
-      min: [0.01, "Efficiency must be at least 0.01 kWh/km"],
-      max: [1, "Efficiency cannot exceed 1 kWh/km"],
     },
     compatibleConnectors: {
       type: [String],
@@ -143,9 +141,7 @@ VehicleRequestSchema.statics.findPendingDuplicate = function (
 };
 
 // Static method to count a user's currently unresolved requests
-VehicleRequestSchema.statics.countPendingForUser = function (
-  userId: string,
-) {
+VehicleRequestSchema.statics.countPendingForUser = function (userId: string) {
   return this.countDocuments({ requestedBy: userId, status: "pending" });
 };
 
@@ -159,6 +155,7 @@ interface VehicleRequestModel extends Model<VehicleRequestDocument> {
     modelName: string,
     variant: string | undefined,
     vehicleType: VehicleType,
+    image: string,
   ): ReturnType<Model<VehicleRequestDocument>["findOne"]>;
   countPendingForUser(userId: string): Promise<number>;
 }

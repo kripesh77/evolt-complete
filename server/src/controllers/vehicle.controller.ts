@@ -111,6 +111,7 @@ export class VehicleController {
         modelName,
         variant,
         vehicleType,
+        image,
         batteryCapacity_kWh,
         compatibleConnectors,
       } = req.body as CreateVehicleInput;
@@ -119,6 +120,7 @@ export class VehicleController {
         !make ||
         !modelName ||
         !vehicleType ||
+        image ||
         batteryCapacity_kWh === undefined ||
         !compatibleConnectors ||
         compatibleConnectors.length === 0
@@ -126,7 +128,7 @@ export class VehicleController {
         res.status(400).json({
           status: "error",
           message:
-            "make, modelName, vehicleType, batteryCapacity_kWh, efficiency_kWh_per_km, " +
+            "make, modelName, image, vehicleType, batteryCapacity_kWh, efficiency_kWh_per_km, " +
             "and compatibleConnectors are required",
         });
         return;
@@ -137,6 +139,7 @@ export class VehicleController {
         modelName,
         variant,
         vehicleType,
+        image,
         batteryCapacity_kWh,
         compatibleConnectors,
         addedBy: req.user?.id,
@@ -193,6 +196,7 @@ export class VehicleController {
         modelName,
         variant,
         vehicleType,
+        image,
         batteryCapacity_kWh,
         compatibleConnectors,
         notes,
@@ -200,16 +204,17 @@ export class VehicleController {
         make: string;
         modelName: string;
         variant?: string;
+        image: string;
         vehicleType: VehicleType;
         batteryCapacity_kWh?: number;
         compatibleConnectors?: ConnectorType[];
         notes?: string;
       };
 
-      if (!make || !modelName || !vehicleType) {
+      if (!make || !modelName || !vehicleType || !image) {
         res.status(400).json({
           status: "error",
-          message: "make, modelName, and vehicleType are required",
+          message: "make, modelName, image and vehicleType are required",
         });
         return;
       }
@@ -228,6 +233,7 @@ export class VehicleController {
         modelName,
         variant,
         vehicleType,
+        image,
         batteryCapacity_kWh,
         compatibleConnectors,
         notes,

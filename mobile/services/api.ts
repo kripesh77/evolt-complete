@@ -2,13 +2,24 @@ import { API_BASE_URL, NOMINATIM_CONFIG } from "@/constants";
 import type {
   NearbyStationsResponse,
   NominatimResult,
+  MyVehicleRequestsResponse,
   RouteRecommendationRequest,
   RouteRecommendationResponse,
-  MyVehicleRequestsResponse,
   SubmitVehicleRequestPayload,
   SubmitVehicleRequestResponse,
   VehicleSearchResponse,
 } from "@/types";
+
+export interface CloudinaryConfig {
+  cloudName: string;
+  apiKey: string;
+}
+
+export interface CloudinaryUploadFile {
+  uri: string;
+  name?: string;
+  type?: string;
+}
 
 // Route to station response type
 export interface RouteToStationResponse {
@@ -176,6 +187,48 @@ export const api = {
     }
 
     return response.json();
+  },
+
+  async getCloudinaryConfig(): Promise<CloudinaryConfig> {
+    const response = await fetch(`${API_BASE_URL}/stations/cloudinary-config`);
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to get Cloudinary config: ${error}`);
+    }
+
+    const data = await response.json();
+    return data.data;
+  },
+
+  async uploadImageToCloudinary(
+    file: CloudinaryUploadFile,
+    cloudinaryConfig: CloudinaryConfig,
+  ): Promise<string> {
+    const formData = new FormData();
+    formData.append("file", {
+      uri: file.uri,
+      name: file.name ?? "vehicle-request.jpg",
+      type: file.type ?? "image/jpeg",
+    } as never);
+    formData.append("upload_preset", "ev_stations");
+    formData.append("folder", "vehicle-requests");
+
+    const response = await fetch(
+      `https://api.cloudinary.com/v1_1/${cloudinaryConfig.cloudName}/image/upload`,
+      {
+        method: "POST",
+        body: formData,
+      },
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to upload image to Cloudinary: ${error}`);
+    }
+
+    const data = await response.json();
+    return data.secure_url as string;
   },
 
   async getMyVehicleRequests(token: string): Promise<MyVehicleRequestsResponse> {
