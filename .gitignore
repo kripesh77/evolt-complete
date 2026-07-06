@@ -1,4 +1,2 @@
-admin/
-operator-main/
 node_modules/
 *.env
