@@ -23,7 +23,11 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
-import { useOccupancySocket, useStationRoom, OccupancyChangedPayload } from "@/lib/socket";
+import {
+  useOccupancySocket,
+  useStationRoom,
+  OccupancyChangedPayload,
+} from "@/lib/socket";
 
 export default function StationDetailsPage() {
   const params = useParams();
@@ -60,7 +64,7 @@ export default function StationDetailsPage() {
   );
 
   useOccupancySocket(handleOccupancyChanged);
-  
+
   // Join station room when operator enters edit page
   useStationRoom(stationId);
 
@@ -295,23 +299,31 @@ export default function StationDetailsPage() {
                   }}
                 />
               )}
-              
+
               {/* Navigation arrows for multiple images */}
               {station.images.length > 1 && (
                 <>
                   <button
-                    onClick={() => setCurrentImageIndex((prev) => (prev === 0 ? station.images!.length - 1 : prev - 1))}
+                    onClick={() =>
+                      setCurrentImageIndex((prev) =>
+                        prev === 0 ? station.images!.length - 1 : prev - 1,
+                      )
+                    }
                     className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
                   >
                     <ChevronLeft className="h-6 w-6" />
                   </button>
                   <button
-                    onClick={() => setCurrentImageIndex((prev) => (prev === station.images!.length - 1 ? 0 : prev + 1))}
+                    onClick={() =>
+                      setCurrentImageIndex((prev) =>
+                        prev === station.images!.length - 1 ? 0 : prev + 1,
+                      )
+                    }
                     className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
                   >
                     <ChevronRight className="h-6 w-6" />
                   </button>
-                  
+
                   {/* Image counter */}
                   <div className="absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
                     {currentImageIndex + 1} / {station.images.length}

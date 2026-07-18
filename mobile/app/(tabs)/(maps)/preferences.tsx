@@ -312,7 +312,7 @@ export default function PreferencesScreen() {
                 value={offsetValue}
                 onChangeText={handleOffsetChange}
                 keyboardType="decimal-pad"
-                placeholder={offsetUnit === "km" ? "e.g., 5" : "e.g., 5000"}
+                placeholder={offsetUnit === "km" ? "e.g., 1" : "e.g., 1000"}
                 error={offsetError}
               />
             </OffsetInputWrapper>

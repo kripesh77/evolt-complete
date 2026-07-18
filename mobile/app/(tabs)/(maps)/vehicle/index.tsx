@@ -428,12 +428,13 @@ export default function VehicleSearchScreen() {
               value={batteryPercent}
               onChangeText={setBatteryPercent}
               keyboardType="decimal-pad"
-              placeholder="e.g., 30"
+              placeholder="e.g.,70"
               error={errors.batteryPercent}
             />
 
             <FormInput
               label="Efficiency (kWh/km)"
+              information="Efficiency Factor represents the battery's remaining capacity relative to its original state. 1.0 = 100% original capacity; lower values indicate degradation."
               value={efficiency}
               onChangeText={setEfficiency}
               keyboardType="decimal-pad"

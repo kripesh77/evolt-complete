@@ -128,7 +128,7 @@ export default function VehiclesPage() {
               key={vehicle._id}
               className="overflow-hidden rounded-xl bg-white shadow-sm transition-shadow hover:shadow-md border border-black/20"
             >
-              <div className="relative h-40 bg-gray-100">
+              <div className="relative h-40 bg-gray-100 overflow-hidden">
                 {vehicle.image ? (
                   <img
                     src={vehicle.image}

@@ -12,7 +12,7 @@ interface SegmentProps {
 
 export const ButtonContainer = styled.TouchableOpacity<SegmentProps>`
   flex: 1;
-  padding-vertical: ${spacing.lg}px;
+  padding-vertical: ${spacing.md}px;
   padding-horizontal: ${spacing.lg}px;
   border-radius: ${borderRadius.md}px;
   border-width: 2px;
@@ -24,7 +24,7 @@ export const ButtonContainer = styled.TouchableOpacity<SegmentProps>`
 `;
 
 export const ButtonText = styled.Text<SegmentProps>`
-  font-size: 16px;
+  font-size: 12px;
   color: ${({ isSelected }) =>
     isSelected ? colors.primary : colors.text.secondary};
   font-weight: ${({ isSelected }) => (isSelected ? "600" : "400")};

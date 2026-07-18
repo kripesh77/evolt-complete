@@ -1,10 +1,10 @@
 // API endpoints - Update this to your backend URL
-export const API_BASE_URL = "http://172.40.40.143:8000//api/v1";
+export const API_BASE_URL = "http://192.168.254.1:8000/api/v1";
 
 // Default values
 export const DEFAULT_RADIUS_KM = 5;
 export const DEFAULT_ROUTE_OFFSET_KM = 5;
-export const DEFAULT_BATTERY_PERCENT = 30;
+export const DEFAULT_BATTERY_PERCENT = 70;
 
 // Radius options for nearby stations search
 export const RADIUS_OPTIONS = [5, 10, 20] as const;
